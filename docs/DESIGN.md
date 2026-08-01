@@ -31,7 +31,7 @@ seo-god/                      (public repo == the skill folder)
     schedule.md               OS-native scheduler OR cloud routine (asks the user)
     power-ups.md              optional: DataForSEO (budget-capped), LLM keys, Telegram digest
   scripts/
-    daily-run.(ps1|sh)        ping OpenSEO cron endpoint → snapshot → claude -p act step
+    daily-run.(ps1|sh)        probe OpenSEO /api/health → claude -p "/seo-god daily" → run marker
     install-schedule.(ps1|sh) Task Scheduler / launchd / cron creation, hardened
   README.md                   audience-facing; built with beautify-github-readme
 ```

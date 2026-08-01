@@ -50,7 +50,7 @@ Store the working command as `build_cmd` in `seo-god.json` (read, modify, write 
 **If the project genuinely has no build or check step at all** — hand-written HTML, no toolchain —
 ask for the closest thing they do run before shipping (a linter, a site generator, a validator).
 Only if there is truly nothing, store `build_cmd: "none"`. Then there is no gate, so you do not get
-to say "fixed": every edit is reported as **edited, unverified**, listed separately in the step 7
+to say "fixed": every edit is reported as **edited, unverified**, listed separately in the step 8
 summary, and the summary states plainly that no build gate existed. Do not invent a substitute gate
 and do not let the absence of one quietly become a pass.
 
@@ -81,10 +81,11 @@ Only the body changes from call to call. Bodies are
 
 **Discover the toolset first.** Send the discovery call — body
 `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}` — and read the names back. This
-version of the skill is written against these four, which are registered by OpenSEO's MCP server:
+version of the skill is written against these five, which are registered by OpenSEO's MCP server:
 
 | Tool | What it does | Key arguments |
 | --- | --- | --- |
+| `list_projects` | the registered projects, to resolve `projectId` (step 1) | none |
 | `run_site_audit` | starts a crawl, returns immediately | `projectId`*, `url`*, `maxPages`, `runLighthouse` |
 | `get_audit_status` | progress of a crawl | `projectId`*, `auditId` |
 | `get_audit_issues` | the prioritized issue report | `projectId`*, `auditId`, `severity`, `issueType`, `limit` |
@@ -133,19 +134,27 @@ Call `get_audit_issues` with `projectId` and your `auditId`. The reply gives you
   type — follow it rather than inventing your own fix.
 
 **The rows are truncated, the summary is not.** `limit` defaults to 200 and caps at 1000, and the
-rows are sorted severity-first so truncation drops `info` before `critical`. When `summary` shows
-more of a type than you received rows for, re-call with `issueType` set to that one type to page
-through the rest. Never report a count from the row array — take counts from `summary`.
+rows are sorted severity-first so truncation drops `info` before `critical`. **There is no offset or
+cursor** — you cannot page. To get more rows of one type, re-call with `issueType` set to that single
+type, which re-queries and gives you up to `limit` rows of just that type. A type with more than 1000
+occurrences cannot be fully enumerated: work the rows you have and take the count from `summary`.
+Never report a count from the row array.
 
 Call `get_audit_pages` when you need the current state of a page you are about to edit: it returns
 status code, title, description, word count, indexability, crawl depth and link counts per URL.
 You cannot write a replacement title without seeing the one that is there.
 
+**`get_audit_pages` truncates the same way** — `limit` defaults to **100** (max 1000) — but it also
+returns `result.structuredContent.total`, the true number of matching pages. Take every page count
+from `total`, never from the length of the returned `pages` array.
+
 **Pages the crawler could not read are not clean pages.** `get_audit_pages` with
 `fetchClass: "blocked"` lists pages that answered with a bot challenge or an access denial, and
-they also appear as `blocked-page` issues. They were not audited. Say so in the summary, count them
-separately from passes, and put them on the punch list with the `howToFix` text OpenSEO returns
-(it names allowlisting the audit crawler's user agent in the WAF).
+they also appear as `blocked-page` issues. They were not audited. Read the blocked count from that
+call's `total` — with the default limit of 100 the array will under-report any site blocking more
+than 100 pages, which is exactly the site you most need an honest number for. Say so in the summary,
+count them separately from passes, and put them on the punch list with the `howToFix` text OpenSEO
+returns (it names allowlisting the audit crawler's user agent in the WAF).
 
 ### Identify the money pages before you sort
 
@@ -198,23 +207,51 @@ and CDN configuration (redirects, headers, TTFB, 5xx origin errors), WAF and bot
 DNS, pages authored in a hosted CMS, and third-party embeds. These go on the punch list with an
 exact instruction, not a vague one.
 
+### Before the first edit: establish the undo
+
+You are about to change files behind a gate that can fail, so an undo has to exist before the first
+edit, not after the first failure.
+
+- **If the project uses git:** run `git status --porcelain`. If any file you are about to touch
+  already has uncommitted changes, stop and get the user's explicit go-ahead first — those are
+  their edits, not yours, and a restore would destroy them. A clean tree, or their go-ahead, is the
+  precondition for editing.
+- **If there is no git:** say so once, plainly — the per-batch snapshots below are the only undo
+  that will exist for this run.
+
 ### The fix loop
 
 1. Take ONE issue type within the current class — for example every `missing-title` — and fix up to
    about ten related occurrences with the Edit tool. One template usually fixes many rows at once.
-2. Run `build_cmd`.
-3. Exit 0 → the batch is done. Record each issue as fixed, with its `issueType`, URL, and the files
+2. **Snapshot first.** Before the first Edit of batch `<n>`, copy every file that batch will touch to
+   `.seo-god/backup/batch-<n>/<original-relative-path>`, preserving the relative path so the restore
+   is an unambiguous copy-back. Snapshot a file the moment you decide to edit it — if the batch grows
+   mid-way, snapshot the new file before you touch it, not afterwards.
+3. Make the edits, then run `build_cmd`.
+4. Exit 0 → the batch is done. Record each issue as fixed, with its `issueType`, URL, and the files
    you changed.
-4. Non-zero → the batch is **not** done. Read the output, fix the cause, and run it again. If you
-   cannot get it green, revert exactly the files this batch touched (`git checkout -- <files>`),
-   record those issues as not fixed and why, and move on. Never leave the tree broken to move
-   faster, and never count a reverted batch as fixed.
+5. Non-zero → the batch is **not** done. Read the output, fix the cause, run it again. **Give this at
+   most three attempts.** After a third failed gate, stop trying to fix forward: restore, and put that
+   issue type on the punch list with the build error as the reason — an issue that fights the gate
+   three times is telling you it is not a mechanical fix.
+6. **To restore, copy the files back from `.seo-god/backup/batch-<n>/` — only that batch's files, and
+   only from that batch's snapshot.** Then run `build_cmd` once more to confirm the tree is green
+   again, and drop **only this batch's** issues from the fixed ledger.
+
+**Never restore with `git checkout -- <files>`.** That reverts to the last commit, not to the start
+of this batch — so a red batch 3 touching a file that batch 1 already fixed and verified would
+silently undo batch 1's work while the ledger still counts it as fixed. That is the honesty rule
+broken by the tool meant to protect it. Copy-back from the batch snapshot cannot do this: earlier
+batches survive by construction, and it works identically in a project with no git at all.
+
+Never leave the tree broken to move faster, and never count a restored batch as fixed. `.seo-god/`
+is gitignored, so the snapshots never enter the user's repository; they are scratch for this run.
 
 Rules for the edits themselves: change only what the issue requires; do not reformat surrounding
 code, rename things, or "improve" anything you were not sent to fix. Write real titles and
 descriptions from the page's actual content — read the page source before you write its title. Do
-not commit the user's repository unless they ask; when the phase ends, show them `git diff --stat`
-so they can review and commit it themselves.
+not commit the user's repository unless they ask; when the phase ends, show them the changed files
+(step 8) so they can review and commit it themselves.
 
 ## 7. Write the punch list
 
@@ -230,10 +267,12 @@ This lives in their repository on purpose — it is a durable deliverable, not s
 
 - **Write it last, after your final `build_cmd` run.** Some build commands wipe `dist/` before
   rebuilding, and that would delete the punch list you just wrote.
-- **Check it is not ignored:** `git check-ignore -q dist/seo` succeeds (exit 0) when `dist/` is
-  gitignored, which is common. If it is, write to `seo/audit-punchlist-<YYYY-MM-DD>.md` at the
-  repository root instead and tell the user why. A punch list that git silently drops is worse than
-  no punch list.
+- **Check it is not ignored — only if the project uses git.** `git check-ignore -q dist/seo` exits 0
+  when `dist/` is gitignored, which is common; if it is, write to
+  `seo/audit-punchlist-<YYYY-MM-DD>.md` at the repository root instead and tell the user why. A punch
+  list that git silently drops is worse than no punch list. Outside a repository this command exits
+  **128**, which is not "ignored" — with no git, skip the check and use the `dist/seo/` path directly.
+  Do not read a 128 as a signal to relocate.
 
 Order the items by the same five classes. Each item carries: the `issueType` and the affected
 URL(s), what breaks because of it, the exact change to make (start from OpenSEO's `howToFix` text),
@@ -256,7 +295,9 @@ Then give the user a short summary, in this order and with no embellishment:
 - **Fixed: N** — broken down by the five classes. Every one of these passed `build_cmd`.
 - **Punted: M** — with the punch list path.
 - Anything you could not fix and could not punt cleanly, named.
-- `git diff --stat` of the changes, uncommitted, for them to review.
+- The changed files, uncommitted, for them to review: `git status --short` when the project uses git
+  — it lists untracked files too, so the punch list you just wrote shows up, which `git diff --stat`
+  would miss. With no git, list the files from your fixed ledger instead.
 - When `build_cmd` is `"none"`: the edited-but-unverified list, and the plain statement that no
   build gate existed for this run.
 

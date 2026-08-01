@@ -7,8 +7,8 @@
 A public Claude Code skill Aria's audience installs in one line. It turns Claude Code into an
 agentic SEO operator for THEIR site using OpenSEO + the methods proven on fastsolve.app:
 audit → measure → act → AI visibility → scheduled daily runs. Free path works end to end;
-paid services are optional power-ups. Distribution: public GitHub repo + a gated setup guide
-on ariacodez.ai/resources (comment→DM funnel).
+paid services are optional power-ups. Distributed as a public GitHub repo; a companion setup
+guide lives on the author's site.
 
 ## Audience assumptions (decision: free-first)
 
@@ -79,8 +79,8 @@ seo-god/                      (public repo == the skill folder)
   FastSolve budget-guard pattern MANDATORY: per-run spend cap, balance floor auto-disable,
   spend ledger. No uncapped API loops, ever.
 - **LLM API keys**: multi-model AI-citation measurement (metric-v2 style).
-- **Telegram digest**: bot-token + pairing walkthrough (the DailBreifBot dance, generalized);
-  daily run ends with a plain-text digest.
+- **Telegram digest**: bot-token + pairing walkthrough (generalized from a production bot
+  setup); daily run ends with a plain-text digest.
 
 ## Safety rails (non-negotiable, encoded in every phase file)
 
@@ -100,8 +100,8 @@ seo-god/                      (public repo == the skill folder)
   badges, section headers, cohesive visual story. Install = one line. A "built live on
   fastsolve.app" proof section links the public AI-visibility report.
 - In-skill instruction text stays neutral/technical (it's for Claude, not the audience).
-  The gated guide page on ariacodez.ai IS Aria-voiced — written at launch via aria-voice +
-  website-guide + inro-automation (launch collateral, out of scope for the skill build).
+  The companion setup guide on the author's site carries the author's voice instead — launch
+  collateral, out of scope for the skill build.
 
 ## Out of scope v1
 
@@ -122,6 +122,6 @@ multi-site management, Windows-service style always-on daemons, SERP scraping of
 
 - Scaffold with **skill-creator** (structure, description tuning, evals); README via
   **beautify-github-readme**; repo under Aria's GitHub (public).
-- Genericize from the FastSolve engine by REWRITING, not copying — the engine code is
-  FastSolve-specific and stays private; only patterns and lessons transfer.
+- Genericize from the FastSolve engine by REWRITING, not copying — the original production
+  engine is a separate private codebase; only its patterns and lessons transfer.
 - Next step after spec approval: **writing-plans** skill for the implementation plan.

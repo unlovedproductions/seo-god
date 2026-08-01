@@ -3,7 +3,7 @@
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const self = fileURLToPath(import.meta.url);
 const root = join(dirname(self), "..");
@@ -20,18 +20,22 @@ const FORBIDDEN = [
 // Private guards stay OUT of the public repo: one regex per line, # comments allowed,
 // loaded from the gitignored .seo-god/lint-extra.txt when a maintainer has one.
 const extra = join(root, ".seo-god", "lint-extra.txt");
-if (existsSync(extra)) {
+const extrasPresent = existsSync(extra);
+let extrasCount = 0;
+if (extrasPresent) {
   for (const line of readFileSync(extra, "utf8").split("\n")) {
     const src = line.trim();
     if (!src || src.startsWith("#")) continue;
-    try { FORBIDDEN.push(new RegExp(src)); } catch { fail.push(`.seo-god/lint-extra.txt: bad regex ${src}`); }
+    // /foo/ would compile to a pattern matching literal slashes and silently never fire.
+    if (/^\/.*\/[dgimsuvy]*$/.test(src)) { fail.push(`lint-extra.txt: remove / delimiters from ${src}`); continue; }
+    try { FORBIDDEN.push(new RegExp(src)); extrasCount++; } catch { fail.push(`.seo-god/lint-extra.txt: bad regex ${src}`); }
   }
 }
 
 const scan = (dir) => {
   for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
     const rel = join(dir, e.name);
-    if (e.isDirectory()) { if (!["node_modules", ".git", ".seo-god"].includes(e.name)) scan(rel); continue; }
+    if (e.isDirectory()) { if (!["node_modules", ".git", ".seo-god", ".superpowers"].includes(e.name)) scan(rel); continue; }
     if (!/\.(md|mjs|sh|ps1|ya?ml|json)$/.test(e.name)) continue;
     if (join(root, rel) === self) continue; // the rule file itself is not a scan target
     const body = readFileSync(join(root, rel), "utf8");
@@ -44,7 +48,7 @@ scan(".");
 if (!existsSync(join(root, "SKILL.md"))) fail.push("SKILL.md missing");
 else {
   const skill = read("SKILL.md");
-  if (skill.split("\n").length > 200) fail.push("SKILL.md over 200 lines");
+  if (skill.replace(/\n$/, "").split("\n").length > 200) fail.push("SKILL.md over 200 lines");
   const named = [...skill.matchAll(/references\/([a-z-]+\.md)/g)].map((m) => m[1]);
   const onDisk = existsSync(join(root, "references")) ? readdirSync(join(root, "references")).filter((f) => f.endsWith(".md")) : [];
   for (const n of new Set(named)) if (!onDisk.includes(n)) fail.push(`SKILL.md names missing file references/${n}`);
@@ -54,10 +58,12 @@ else {
 // 3. Shell scripts parse
 for (const f of existsSync(join(root, "scripts")) ? readdirSync(join(root, "scripts")) : []) {
   try {
-    if (f.endsWith(".sh")) execSync(`bash -n scripts/${f}`, { cwd: root });
-    if (f.endsWith(".ps1")) execSync(`pwsh -NoProfile -Command "$errs=$null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/${f}').Path,[ref]$null,[ref]$errs); if($errs.Count){exit 1}"`, { cwd: root });
+    // execFileSync, not execSync: no shell means POSIX sh cannot expand $errs/$null out of the payload.
+    if (f.endsWith(".sh")) execFileSync("bash", ["-n", `scripts/${f}`], { cwd: root });
+    if (f.endsWith(".ps1")) execFileSync("pwsh", ["-NoProfile", "-Command",
+      `$errs=$null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'scripts/${f}').Path,[ref]$null,[ref]$errs); if($errs.Count){exit 1}`], { cwd: root });
   } catch { fail.push(`scripts/${f}: does not parse`); }
 }
 
 if (fail.length) { console.error(fail.join("\n")); process.exit(1); }
-console.log("skill-lint: clean");
+console.log(`skill-lint: clean (extras: ${extrasPresent ? `${extrasCount} patterns` : "none — private guards NOT enforced"})`);

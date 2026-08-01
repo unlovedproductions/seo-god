@@ -46,8 +46,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $ProjectDir 'seo-god.json') -PathTyp
 # $ErrorActionPreference='Stop' turns any stderr line a native command writes into a
 # terminating error - so a run where `claude` merely logged a warning would be recorded as a
 # failure. Never schedule onto 5.1.
-$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
-if (-not $pwshCmd) {
+# -CommandType Application: a `pwsh` alias or function would resolve with an empty .Source and
+# register a task with no program to run.
+$pwshCmd = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $pwshCmd -or -not $pwshCmd.Source) {
   Fail 'pwsh (PowerShell 7) is not on PATH - install it, then re-run: winget install --id Microsoft.PowerShell (or https://aka.ms/powershell-release)'
 }
 $pwshPath = $pwshCmd.Source
@@ -94,11 +96,13 @@ try {
 # --- 4. Register the task ------------------------------------------------------------------
 $hh = [int]$Time.Substring(0, 2)
 $mm = [int]$Time.Substring(3, 2)
-# Start the trigger at the NEXT occurrence. With today's occurrence already in the past,
-# StartWhenAvailable reads it as a missed start and can fire a full unattended run minutes
-# after install - which nobody asked for while they are still sitting at the machine.
+# Start the trigger at the NEXT occurrence, with two minutes of margin. With today's
+# occurrence already in the past, StartWhenAvailable reads it as a missed start and can fire a
+# full unattended run minutes after install - which nobody asked for while they are still
+# sitting at the machine. The margin covers installing at 04:59 for 05:00: that run belongs to
+# tomorrow, not to the middle of this setup.
 $at = Get-Date -Hour $hh -Minute $mm -Second 0 -Millisecond 0
-if ($at -le (Get-Date)) { $at = $at.AddDays(1) }
+if ($at -le (Get-Date).AddMinutes(2)) { $at = $at.AddDays(1) }
 
 $existed = [bool](Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
 
@@ -153,7 +157,7 @@ Write-Host ""
 Write-Host "$verb scheduled task '$TaskName' - daily at $Time local time. Runner $runnerNote."
 Write-Host "  runs:        $pwshPath -NoProfile -File `"$destRunner`""
 Write-Host "  working dir: $ProjectDir  (seo-god.json must stay here)"
-Write-Host "  next run:    $nextRun  (first fire is the next occurrence, never right now)"
+Write-Host "  next run:    $nextRun  (the next occurrence; a time under 2 minutes away goes to tomorrow, never mid-install)"
 Write-Host "  hardening:   runs on battery, survives unplugging, wakes the PC, catches up a start missed while it was off, never overlaps itself, killed after 2h"
 Write-Host "  logged at:   Task Scheduler > Task Status (Windows keeps the history, not a log file)"
 Write-Host "  marker:      $ProjectDir\.seo-god\last-run.json - /seo-god warns you when it goes 48h stale"

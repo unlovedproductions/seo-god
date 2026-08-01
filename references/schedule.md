@@ -101,6 +101,17 @@ install pointer instead. The reason is not cosmetic: under 5.1, `$ErrorActionPre
 turns any stderr line a native command writes into a terminating error, so a run where `claude`
 merely logged a warning would be recorded as a failed run.
 
+On a machine with no `pwsh` at all, the command above cannot even start — so launch the
+installer with Windows PowerShell and let it deliver its own refusal, which is why it is written
+in 5.1-compatible syntax:
+
+```
+powershell.exe -NoProfile -File "<skill>\scripts\install-schedule.ps1" -Time 05:00 -ProjectDir "<project>"
+```
+
+Nothing is registered by that run: it prints the one-line install pointer, exits 1, and the
+schedule waits until pwsh 7 is installed.
+
 Uninstall: `Unregister-ScheduledTask -TaskName "SEO-GOD Daily" -Confirm:$false`.
 
 ### 2.3 macOS
@@ -121,7 +132,10 @@ almost never contains the `claude` CLI, so the installer copies the `PATH` of th
 run from into the agent's `EnvironmentVariables`. Run the installer from a shell where
 `claude --version` works, and re-run it if the CLI ever moves.
 
-Uninstall: `launchctl unload ~/Library/LaunchAgents/com.seo-god.daily.plist && rm ~/Library/LaunchAgents/com.seo-god.daily.plist`.
+Uninstall — **both steps**: `launchctl bootout gui/$(id -u)/com.seo-god.daily` (or the older
+`launchctl unload <plist>`), then `rm ~/Library/LaunchAgents/com.seo-god.daily.plist`. Booting
+the agent out only stops it for this login session; while the plist is still in
+`~/Library/LaunchAgents`, launchd loads it again at the next login.
 
 ### 2.4 Linux
 
@@ -132,14 +146,23 @@ bash "<skill>/scripts/install-schedule.sh" 05:00 "<project>"
 It installs one crontab line for the current user:
 
 ```
-M H * * * cd <project> && flock -n .seo-god/run.lock bash scripts/daily-run.sh >> .seo-god/cron.log 2>&1
+M H * * * cd '<project>' && flock -n .seo-god/run.lock bash scripts/daily-run.sh >> .seo-god/cron.log 2>&1
 ```
 
-Any previous seo-god line is removed first, whatever project or time it named, so a re-install
-replaces the schedule instead of adding a second daily run; every other line in the crontab is
-passed through untouched. `flock -n` is why a run that somehow overruns 24 hours cannot be
-joined by a second one. The installer refuses if `crontab` or `flock` is missing, and names the
-package to install (and the systemd-timer alternative) instead of installing something half-wired.
+The single quotes around the path are load-bearing: cron hands the line to `/bin/sh`, so an
+unquoted path with a space or an `&` in it would `cd` to the wrong place and treat the remainder
+as separate commands — a schedule that installs cleanly, reports success, and never works. Two
+characters cannot be made safe even quoted, so the installer refuses up front rather than
+registering something broken: a `'` in the path (it would end the quoting) and a `%` (cron reads
+the first unescaped `%` as a newline). Both refusals point at a systemd timer instead.
+
+A previous seo-god line is removed first — matched on **both** markers together, the lock file
+and the runner path, so a line carrying only one of them is the user's and is left alone. The
+installer reports how many lines it replaced and how many it left untouched, and it refuses to
+write at all if it could not first read the existing crontab. `flock -n` is why a run that
+somehow overruns 24 hours cannot be joined by a second one. Missing `crontab` or `flock` is a
+refusal too, naming the package to install (and the systemd-timer alternative) instead of
+installing something half-wired.
 
 cron starts with a minimal `PATH` too, and unlike the launchd branch this line does not carry
 one. If the marker starts saying `claude CLI not found`, add `PATH=<the PATH where claude
@@ -259,6 +282,10 @@ Never write as if you did.
    page. If the seo-god skill is available in this environment, follow its references/act.md -
    it is the authority for every threshold and every edit rule. If it is not, do the read-only
    half: diff the two snapshots and write the readout. Never guess at a rule you cannot read.
+   One clause of act.md does NOT apply to you: its "never commit the user's repository" rule is
+   written for a run on the owner's own machine, where they review the diff themselves. You are
+   not on their machine and a commit is your only way to deliver anything, so step 9 below
+   governs commits and overrides that rule. Nothing else in act.md is relaxed.
 5. Honesty outranks everything else here. Report only fields the snapshot carries: a null
    position, available:false or measured:false all mean NOT MEASURED - never zero, never
    "unranked", never a placeholder number. No invented statistics, prices, benchmarks, dates,
@@ -308,6 +335,10 @@ the user's **local** copy, so it only sees the routine's marker after a `git pul
 without pulling reads as a missed run — which is true of their checkout, if not of the routine.
 Their independent check is the commit history on GitHub.
 
+This redirection is why section 7 has you write `schedule.marker` **explicitly on both paths**: a
+later switch back to an OS-native schedule has to point it back at `.seo-god/last-run.json`, or
+the check would keep watching a file the local runner never touches.
+
 ## 5. AI visibility is not part of the daily loop
 
 The scheduled run is `claude -p "/seo-god daily"`, which routes to `references/act.md` — and
@@ -353,8 +384,13 @@ recognise, keeping `version: 1`:
 
 - `schedule.mode` — `"os"` or `"cloud"`.
 - `schedule.time_local` — the `HH:MM` you actually registered, exactly as passed to the installer.
-- `schedule.marker` — **cloud path only**, set to `"seo/last-run.json"` per 4.4. The OS path
-  leaves this key exactly as it found it.
+- `schedule.marker` — write it explicitly on **both** paths, never "leave it as you found it":
+  `".seo-god/last-run.json"` on the OS path, `"seo/last-run.json"` on the cloud path (4.4). The
+  reason is switching: a project that was on a cloud routine has this key pointing at the
+  committed file, and an OS install that leaves it there points the self-check at a path nothing
+  writes any more — so SKILL.md would warn about a missed run in every single invocation, for
+  ever, while the schedule is in fact working. Whichever path you install, set the key that
+  path's runner actually writes.
 - `phases.schedule` — `"in_progress"` when you start this file, `"done"` only after the
   installer exited 0 and echoed the entry it registered (or, on the cloud path, after the user
   confirms the routine is saved). An installer that refused leaves the phase at
@@ -387,6 +423,12 @@ Briefly, without embellishment:
 | marker stale, log empty or absent | the entry never fired: machine off, task disabled, agent not loaded | Windows: Task Scheduler → SEO-GOD Daily → History. macOS: `launchctl list \| grep com.seo-god.daily`. Linux: `crontab -l`, then the system log for `CRON`. |
 | marker stale, log shows a run that started and stopped | a hard kill — the 2h limit, a power cut, a forced reboot (section 3) | read yesterday's readout for what it was doing; a run that hits 2h is usually waiting on a crawl that never completed |
 | `mode` is `cloud` and the marker is missing | nothing has been pulled yet | `git pull`; still nothing means the routine has not run — check it in claude.ai and look for its commits |
+| `mode` is `cloud` and the marker is **stale** | most likely a checkout that has not been pulled for days, not a stopped routine | **`git pull` first**, then read the marker again. Still stale → check the routine's commit history on GitHub and the routine itself in claude.ai |
+
+**Read the `mode` before you debug.** Every row above `mode is cloud` assumes an OS-native
+entry; on the cloud path there is no task, no agent, no crontab line and no local log to inspect,
+so those checks return nothing and prove nothing. `git pull`, the repository's commit history and
+the routine's own page are the whole diagnostic surface there.
 
 Every row is a real state, and none of them is a reason to soften the warning. The warning is
 the feature.

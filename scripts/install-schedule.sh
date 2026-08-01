@@ -15,13 +15,17 @@
 # runner hard-fails unless seo-god.json is in the current directory.
 #
 # Uninstall:
-#   macOS  launchctl unload ~/Library/LaunchAgents/com.seo-god.daily.plist && rm ~/Library/LaunchAgents/com.seo-god.daily.plist
+#   macOS  launchctl bootout gui/$(id -u)/com.seo-god.daily  (or: launchctl unload <plist>)
+#          then rm ~/Library/LaunchAgents/com.seo-god.daily.plist — while the plist is on disk,
+#          launchd loads it again at the next login even after a bootout.
 #   Linux  crontab -e, then delete the scripts/daily-run.sh line
 #
 # references/schedule.md documents the 48h missed-run check and what each scheduler does NOT do.
 set -euo pipefail
 
-TIME="${1:-05:00}"
+# ${1-…}, not ${1:-…}: an EMPTY first argument must reach the regex and be refused, exactly as
+# the ps1 installer refuses -Time ''. Only an omitted argument takes the default.
+TIME="${1-05:00}"
 PROJECT_DIR="${2:-$PWD}"
 LABEL="com.seo-god.daily"
 
@@ -53,6 +57,14 @@ case "$OS" in
       die "crontab is not installed - install cron (Debian/Ubuntu: sudo apt-get install cron; Fedora: sudo dnf install cronie), or run scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR"
     command -v flock >/dev/null 2>&1 ||
       die "flock is not installed (it ships in util-linux) - install it and re-run; the cron line uses it so two runs can never overlap in one repo"
+    # Two characters a crontab entry cannot survive, checked before anything is written. The
+    # path is single-quoted in the line below, so a ' would end the quoting; and cron turns the
+    # first unescaped % into a newline and feeds the rest to the command as stdin. Either one
+    # registers a broken schedule that reports itself as installed, so refuse instead.
+    case "$PROJECT_DIR" in
+      *"'"*) die "the project path contains a single quote, which cannot be quoted safely inside a crontab line - move the project, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR" ;;
+      *%*)   die "the project path contains '%', which cron reads as a newline - move the project, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR" ;;
+    esac
     ;;
   MINGW* | MSYS* | CYGWIN*)
     die "this is Windows - use install-schedule.ps1 instead (a POSIX shell cannot register a Task Scheduler entry)"
@@ -158,7 +170,7 @@ PLIST_EOF
       # Recent macOS sometimes refuses `load` for a freshly written agent; bootstrap into the
       # GUI domain is the modern equivalent.
       launchctl bootstrap "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 ||
-        die "launchctl refused the agent - run: launchctl load -w \"$PLIST\" and read the error it prints"
+        die "launchctl refused the agent, but the plist IS on disk at $PLIST and launchd will load it at your next login - either run 'launchctl load -w \"$PLIST\"' and read the error it prints, or 'rm \"$PLIST\"' to undo this install"
     fi
     launchctl list 2>/dev/null | grep -q "$LABEL" ||
       echo "warn: $LABEL is not in \`launchctl list\` - check the plist before trusting the schedule" >&2
@@ -173,25 +185,50 @@ PLIST_EOF
     echo "  powered off: the day is skipped. \`sudo pmset repeat wakeorpoweron MTWRFSU $TIME:00\` wakes it if you want that"
     echo "  log:         $PROJECT_DIR/.seo-god/launchd.log  (stdout+stderr; safe to delete)"
     report_tail
-    echo "  uninstall:   launchctl unload '$PLIST' && rm '$PLIST'"
+    echo "  uninstall:   launchctl bootout gui/$(id -u)/$LABEL || launchctl unload '$PLIST'"
+    echo "               then rm '$PLIST' - left on disk, launchd loads it again at your next login"
     ;;
 
   cron)
-    LINE="$MIN $HOUR * * * cd $PROJECT_DIR && flock -n .seo-god/run.lock bash scripts/daily-run.sh >> .seo-god/cron.log 2>&1"
-    TMP="$(mktemp)"
-    trap 'rm -f "$TMP"' EXIT
-    # Drop any previous seo-god line first, whatever project or time it named, so a re-install
-    # replaces the schedule instead of adding a second daily run. Everything else in the
-    # crontab is passed through untouched.
-    crontab -l 2>/dev/null | grep -v -e 'scripts/daily-run\.sh' -e '\.seo-god/run\.lock' > "$TMP" || true
-    printf '%s\n' "$LINE" >> "$TMP"
-    crontab "$TMP"
+    # The project path is SINGLE-QUOTED: cron hands the line to /bin/sh, so an unquoted path
+    # containing a space or an & would run `cd /home/me` and then treat the rest as separate
+    # commands - a schedule that is registered, reported as installed, and permanently broken.
+    LINE="$MIN $HOUR * * * cd '$PROJECT_DIR' && flock -n .seo-god/run.lock bash scripts/daily-run.sh >> .seo-god/cron.log 2>&1"
+    # Our own line matches BOTH markers - the lock file and the runner path. A line carrying
+    # only one of them belongs to the user and is never touched.
+    MINE='\.seo-god/run\.lock.*scripts/daily-run\.sh'
+    CUR="$(mktemp)"; NEW="$(mktemp)"; ERR="$(mktemp)"
+    trap 'rm -f "$CUR" "$NEW" "$ERR"' EXIT
+
+    # Never overwrite a crontab that could not be read. `crontab -l` exits non-zero both for
+    # "this user has no crontab yet" and for a real failure, so separate the two before
+    # writing: a recognised empty-crontab message (or no message at all) means start fresh,
+    # anything else is an error we refuse to trample.
+    if crontab -l > "$CUR" 2> "$ERR"; then
+      :
+    elif grep -qi 'no crontab' "$ERR" || [ ! -s "$ERR" ]; then
+      : > "$CUR"
+    else
+      die "cannot read the current crontab, so nothing was changed: $(tr '\n' ' ' < "$ERR")"
+    fi
+
+    REPLACED="$(grep -cE "$MINE" "$CUR" || true)"
+    KEPT="$(grep -vcE "$MINE" "$CUR" || true)"
+    grep -vE "$MINE" "$CUR" > "$NEW" || true
+    printf '%s\n' "$LINE" >> "$NEW"
+    crontab "$NEW"
     crontab -l 2>/dev/null | grep -Fqx "$LINE" ||
       die "the crontab line did not stick - run 'crontab -l' and add it by hand: $LINE"
 
+    if [ "$REPLACED" -gt 0 ]; then
+      CRON_NOTE="replaced $REPLACED previous seo-god line(s), left $KEPT other line(s) untouched"
+    else
+      CRON_NOTE="new line, left $KEPT existing line(s) untouched"
+    fi
+
     echo ""
     echo "Installed the SEO-GOD daily loop - every day at $TIME local time. Runner $RUNNER_NOTE."
-    echo "  entry:       crontab line for $(id -un)"
+    echo "  entry:       crontab line for $(id -un) - $CRON_NOTE"
     echo "               $LINE"
     echo "  working dir: $PROJECT_DIR  (seo-god.json must stay here)"
     echo "  next run:    $WHEN"

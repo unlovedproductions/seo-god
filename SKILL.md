@@ -103,7 +103,7 @@ are not phases and have no entry in `phases`; they are always available once set
 | measure | `references/measure.md` | `gsc.connected`, `phases.measure` |
 | act (daily loop) | `references/act.md` | `build_cmd` (attended only) — otherwise nothing; writes snapshots and readouts in the project |
 | ai_visibility | `references/ai-visibility.md` | `ai_prompts_locked`, `phases.ai_visibility` |
-| schedule | `references/schedule.md` | `schedule.mode`, `schedule.time_local`, `phases.schedule` |
+| schedule | `references/schedule.md` | `schedule.mode`, `schedule.time_local`, `phases.schedule`, `schedule.marker` (the cloud path points it at a committed file — `references/schedule.md` §4.4 owns that) |
 | power-ups | `references/power-ups.md` | `power_ups.*` |
 
 Read the file, follow it to the end, then come back here to write state. If a phase file tells you

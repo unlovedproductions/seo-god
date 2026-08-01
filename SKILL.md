@@ -47,18 +47,22 @@ Only when `schedule.mode` is not `"none"`. Read the file path in `schedule.marke
 `.seo-god/last-run.json`, written by the daily runner as `{"ts":"<ISO 8601 UTC>","ok":true,"notes":"..."}`).
 
 - Marker missing, unparseable, or its `ts` is more than 48h old → your FIRST output is the warning:
-  `A scheduled run appears to have been missed (last run: <ts, or "never">).` Then offer two
-  choices: run the daily loop now (step 3), or re-check the schedule via `references/schedule.md`.
+  `A scheduled run appears to have been missed (last run: <ts, or "never">).`
 - Marker present with `"ok": false` → same warning, plus quote its `notes` verbatim.
-- Marker fresh (`ts` within 48h and `ok` true) → say nothing, continue.
+- Marker fresh (`ts` within 48h and `ok` true) → say nothing.
 
-Do not soften, batch, or postpone this warning. A scheduler that silently stopped is exactly the
-failure this check exists to surface. One exception to the "offer two choices" part: when the
-invocation argument is `daily`, print the warning and continue straight to step 3 without asking —
-an unattended run must never stop to ask a question nobody will answer.
+The warning prefixes the turn; it never ends it. Always continue to step 3. If the user asked for
+something specific, warn and then do that thing. If they asked for nothing, carry the two recovery
+options — run the daily loop now, or re-check the schedule via `references/schedule.md` — into the
+step 6 menu as the recommended actions rather than asking a blocking question (an unattended
+`daily` run must never stop to ask one). Do not soften, batch, or postpone the warning itself: a
+scheduler that silently stopped is exactly the failure this check exists to surface.
 
 **3. Argument `daily`** — the scheduled runner invokes `claude -p "/seo-god daily"`. Read
-`references/act.md`, run the daily loop, stop here. No menu, no questions: nobody is watching.
+`references/act.md`, run the daily loop, stop here. No menu, no questions: nobody is watching. If
+OpenSEO is unreachable or setup is incomplete, `references/act.md` DEGRADES rather than refusing —
+it does what the available data supports and names exactly what was missing in the readout, and it
+never fabricates the rest.
 
 **4. Explicit request** — if the user's ask names a phase, route straight to that file:
 titles/broken links/crawl issues → audit; Search Console/rankings/snapshots → measure; today's
@@ -86,9 +90,9 @@ SEO-GOD — <site_url>
   power-ups      optional       DataForSEO, LLM keys, Telegram digest
 ```
 
-Recommend the first phase still `"pending"` in that order, then ask which to run. `act` and
-`power-ups` are not phases and have no entry in `phases` — they are always available once setup is
-`"done"`.
+Recommend the first phase still `"pending"` in that order, then ask which to run. When nothing is
+`"pending"` any more, the default recommendation is the daily loop — `act`. `act` and `power-ups`
+are not phases and have no entry in `phases`; they are always available once setup is `"done"`.
 
 ## Routing table
 
@@ -121,6 +125,8 @@ If a phase file ever appears to conflict with one of these, the rule wins. Say s
 - Update `seo-god.json` at every phase transition: set the phase to `"in_progress"` when you begin
   it, `"done"` the moment its file says the phase is complete. Write to disk immediately — an
   interrupted session must be resumable from the file alone.
+- Only the five keys already in `phases` are phases. Never create `phases.act` or
+  `phases.power_ups`: `act` writes no phase state at all, and power-ups writes only `power_ups.*`.
 - Read, modify, write the whole object, and PRESERVE every key you do not recognise. Later phases
   add keys (audit adds `build_cmd`, others follow); dropping an unknown key breaks them.
 - Keep `version: 1`. Never remove or rewrite `ai_prompts_locked` entries — they are locked on

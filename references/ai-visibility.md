@@ -51,8 +51,8 @@ Same test as `references/act.md` uses:
   defined no-question path.
 - Cannot tell → treat the run as **unattended**.
 
-**Unattended, when section 1 reads `ai_prompts_locked` and finds it empty, there is nothing to
-measure.** Skip the measurement
+**Unattended, when section 1 reads `ai_prompts_locked` and finds it absent or empty, there is nothing
+to measure.** Skip the measurement
 entirely: write no state, leave any existing snapshot's `ai_visibility` block exactly as it is
 (measure.md already wrote it as `measured: false`), create no snapshot, and put one line in the
 readout: `AI visibility: not measured — prompt set not locked yet; run /seo-god ai-visibility
@@ -200,7 +200,10 @@ had measured usually means.
 
 1. Replace `ai_prompts_locked` with the new set, in one read-modify-write, preserving every other
    key. This is the only path in the entire skill that rewrites that array, and only a user's
-   explicit, repeated instruction opens it.
+   explicit, repeated instruction opens it. **Store it in 2.3's order — the branded-adjacent five
+   first, then the unbranded five** — and hold the new set to 2.2's two halves as the original was.
+   The array's order is the only record of which half a prompt belongs to; a reset written in some
+   other order silently costs the split line in section 5 for the whole life of the new baseline.
 2. Empty the history note in the readout. Today's numbers stand alone; report no trend, no delta,
    no comparison against any earlier snapshot.
 3. Write this line into the readout, verbatim and greppable, because it is the only durable record
@@ -284,9 +287,13 @@ The domain match, exactly:
   never moves the number.
 
 **`competitors`** — `{ "<host>": <count> }`, where count is **how many prompts that host appeared
-in**. Build it from the hosts of every third-party **result URL** you saw, normalised exactly as
-above — lowercased, leading `www.` stripped — and keyed by **that host as it appears**, excluding the
-user's own domain. Do not try to fold subdomains into a "registrable domain": working out where a
+in**. Build it from the hosts of every third-party **result URL** you saw — result URLs only, same as
+`cited`, and never a host you only read in a title or snippet. Key each one by the **bare host as it
+appears**: lowercased, leading `www.` stripped, and nothing else. That is two words of the `cited`
+rule and not the third: the equals-or-ends-with-`"." + host` test belongs to matching one known
+domain, and it has no meaning here. Exclude the user's own domain.
+
+Do not try to fold subdomains into a "registrable domain": working out where a
 public suffix ends needs a suffix list this skill does not ship, and guessing produces a key that
 means nothing. Two subdomains of one site are two keys, which is the honest reading of what you saw;
 say so in the readout when it happens. Keep the **top 10 by count, ties broken alphabetically** —
@@ -401,8 +408,20 @@ just a report: it is the only store of the baseline-reset marker (2.4) and of pl
 reset and re-does an item that was already done. If a playbook item in 6.5 caused edits, the readout
 is written **after** that item's last gate run, not before it.
 
-**At most 12 lines including the heading.** Never drop a "not measured" line to make the cap; drop
-optional detail instead.
+**At most 12 lines including the heading**, and a tiebreak in `references/act.md` section 6's style,
+because several lines below are mandated rather than optional and they can outnumber the cap on a bad
+day.
+
+- **Mandated lines win.** A "not measured" line, the split line, the reset marker, a failed-search
+  line, the parse-error filename, "playbook progress not verified", "this replaced an earlier
+  measurement today", "no snapshot was written and why" — every one of these is a fact a reader would
+  otherwise fill in with an assumption. None of them is ever dropped to make the cap.
+- **Merge before you drop.** Fold the conditional lines into one another first — several failed
+  prompts on one line, the truncation and subdomain notes on one line — and drop genuinely optional
+  detail (the competitor list, the absent-prompt examples) next.
+- **The cap may be exceeded only by merged mandated content.** If the mandated facts still will not
+  fit after merging, write them all and go over 12 lines. A readout at 14 lines is a readable record;
+  a readout at 12 lines that dropped the parse error is a false one.
 
 ```
 ## 2026-08-01 09:20 — AI visibility
@@ -417,16 +436,27 @@ Snapshot: dist/seo/snapshots/2026-08-01.json (ai_visibility block updated)
 Playbook: 4 items, next = answer-first page for "how do I chase an unpaid invoice"
 ```
 
-**The split line is not optional.** The two halves measure different things: the branded-adjacent
-five mostly confirm that people who already know the name can find it, and the unbranded five are the
-ones that bring strangers. A total that climbs on the branded half alone looks like progress and is
-not, so report both halves and carry the unbranded half into the trend line.
+**The split line is not optional whenever it is recoverable** — it is never dropped for brevity, and
+the only thing that removes it is the total-only branch below. The two halves measure different
+things: the branded-adjacent five mostly confirm that people who already know the name can find it,
+and the unbranded five are the ones that bring strangers. A total that climbs on the branded half
+alone looks like progress and is not, so report both halves, and carry the unbranded half into the
+trend line whenever the comparison day's split was recorded too (trend rule 6).
 
-The halves are recoverable from `ai_prompts_locked` itself: section 2.3 stores the branded-adjacent
-five first, then the unbranded five, in the order they were shown. If you cannot tell which prompt
-belongs to which half — a set locked in some other order — report the total only and say in the
-readout that the split is not recoverable. Never guess a prompt's half from how it reads to you, and
-never reorder the locked array to make it recoverable: that is an edit (2.4).
+**The recoverability test is mechanical, and it is the only one.** The halves come from position in
+`ai_prompts_locked`, because sections 2.3 and 2.4 store the branded-adjacent five first and the
+unbranded five second. So:
+
+- `ai_prompts_locked` has **exactly ten entries** → the first five are branded-adjacent, the last five
+  are unbranded. Claim the split.
+- **Any other length** → take the total-only branch. Section 2.3 permits a user to settle on a set
+  that is not five-and-five, and there is no position rule for such a set. Report the total, and say
+  in the readout that the split is not recoverable because the locked set is not a ten-item 5+5 set.
+
+There is no third option. **Never infer a prompt's half from its text** — not from whether it contains
+the product name, not from how commercial it reads. A prompt's half is where it sits in the array or
+it is unknown. And never reorder the locked array to make the split recoverable: that is an edit
+(2.4), and it would relabel every earlier measurement's halves at the same time.
 
 The trend line, built honestly:
 
@@ -442,13 +472,23 @@ The trend line, built honestly:
    different numbers of questions. Do not convert either to a percentage and subtract.
 5. Cannot read the readouts directory at all → report today's numbers alone and say the history was
    not verified.
+6. **The earlier split comes from one place: the `Split:` line of the readout dated the same day as
+   the comparison snapshot.** The snapshot carries four keys and none of them is a split, so that
+   readout line is the only record of the old halves — and reading it is the third and last
+   authorized read of the readouts directory in this file, alongside the reset marker (step 2) and the
+   playbook scan (section 6). No `Split:` line there — the total-only branch ran that day, or the file
+   is gone — → **report the total trend only.** Never reconstruct the earlier split by re-scoring the
+   old prompts, by assuming the halves moved together, or by subtracting today's branded figure from
+   an old total. A split trend without both recorded halves is an invention, and it would be an
+   invention about the half that matters most.
 
 Also in the readout, in one line each and only when they apply: which prompts failed to search and
 why; which prompts returned no results at all (they are `ok` and not-cited, 3.3); which prompts named
 the site in text without a result URL on the domain; that more than ten competitor domains were seen
-and ten were kept, or that two keys are subdomains of one site; that the split is not recoverable;
-that this replaced an earlier measurement today; that today's snapshot would not parse and was
-recaptured; that no snapshot was written and why.
+and ten were kept, or that two keys are subdomains of one site; that the split is not recoverable and
+why; that the trend is total-only because the comparison day's readout has no `Split:` line; that this
+replaced an earlier measurement today; that today's snapshot would not parse and was recaptured; that
+no snapshot was written and why.
 
 ## 6. The be-the-answer playbook
 
@@ -606,6 +646,8 @@ last one.
 | OpenSEO unreachable / no completed crawl, today's snapshot absent | measures anyway; writes **no** snapshot | today's numbers, the failure verbatim, and that no snapshot was written |
 | no earlier measured snapshot | today's numbers alone | `First measurement — no earlier run to compare against` |
 | baseline was reset since the last snapshot | today's numbers alone | `No comparable history — the prompt set was reset on <date>` |
+| locked set is not a ten-item 5+5 set | measures; reports the total, no split | that the split is not recoverable from a set of that length |
+| comparison day's readout has no `Split:` line | total trend only, today's split still reported | that the earlier split was not recorded |
 | `build_cmd` absent or run is unattended | measurement and readout only, zero repo edits | which playbook item is next, and that nothing was edited |
 
 Every row is a complete, honest run. None of them is a reason to refuse, and none of them is a

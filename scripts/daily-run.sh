@@ -36,6 +36,11 @@ note() {
 }
 # Any unhandled failure — including a non-zero exit from claude — lands here.
 trap 'note false "failed during $STEP (line $LINENO)"' ERR
+# A scheduler that hits its execution-time limit kills the run mid-flight. Without
+# this the marker would still hold the PREVIOUS run's ok:true and SKILL.md's
+# self-check would never see the miss. Clearing ERR on the way out keeps this note
+# from being overwritten by the killed command's own failure.
+trap 'note false "interrupted during $STEP"; trap - ERR; exit 143' INT TERM
 # Deliberate stops clear the trap first so the intended note is the one kept.
 die() { trap - ERR; note false "$1"; exit 1; }
 
@@ -99,7 +104,12 @@ if [ -n "$OPENSEO_URL" ]; then
 fi
 
 STEP="claude -p /seo-god daily"
-claude -p "/seo-god daily" --permission-mode acceptEdits --max-turns 80
+# MSYS2_ARG_CONV_EXCL is the Git Bash trap: MSYS rewrites any argument that looks
+# like an absolute POSIX path before handing it to a native .exe, so the prompt
+# would reach claude.exe as "C:/Program Files/Git/seo-god daily" — a real 80-turn
+# acceptEdits session on a garbage prompt, ending in an ok:true marker. Scoped to
+# this one prefix, and ignored outright by macOS and Linux shells.
+MSYS2_ARG_CONV_EXCL='/seo-god' claude -p "/seo-god daily" --permission-mode acceptEdits --max-turns 80
 
 if [ -n "$SUFFIX" ]; then
   note true "completed ($SUFFIX)"

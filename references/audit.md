@@ -127,7 +127,9 @@ the user whether to keep waiting; do not silently spin.
 Call `get_audit_issues` with `projectId` and your `auditId`. The reply gives you two things:
 
 - `result.structuredContent.summary` — `{ issueType, title, severity, count }` per type, **complete
-  counts for the whole audit**. These are your totals.
+  counts for the whole audit — but only on an UNFILTERED call.** `summary` is computed over whatever
+  rows the call selected, so a call with `severity` or `issueType` set summarises only that slice.
+  Take your totals from an unfiltered call, and never report a filtered `summary` as the audit total.
 - `result.structuredContent.issues` — the rows: `{ severity, issueType, title, url, details,
   howToFix }`. `severity` is `"critical"`, `"warning"` or `"info"`. `details` is issue-specific;
   read it, do not assume its shape. `howToFix` is OpenSEO's own remediation text for that issue
@@ -218,31 +220,63 @@ edit, not after the first failure.
   precondition for editing.
 - **If there is no git:** say so once, plainly — the per-batch snapshots below are the only undo
   that will exist for this run.
+- **Capture a run stamp now** — the current date-time as `YYYY-MM-DD-HHMM`. Every backup path in this
+  run uses it, and every restore reads from it. Capture it once and reuse it: without it, a later
+  run's batch 3 would overwrite this run's batch 3 backup and restore the wrong files.
 
 ### The fix loop
 
-1. Take ONE issue type within the current class — for example every `missing-title` — and fix up to
-   about ten related occurrences with the Edit tool. One template usually fixes many rows at once.
-2. **Snapshot first.** Before the first Edit of batch `<n>`, copy every file that batch will touch to
-   `.seo-god/backup/batch-<n>/<original-relative-path>`, preserving the relative path so the restore
-   is an unambiguous copy-back. Snapshot a file the moment you decide to edit it — if the batch grows
-   mid-way, snapshot the new file before you touch it, not afterwards.
-3. Make the edits, then run `build_cmd`.
+1. **Select.** Take ONE issue type within the current class — for example every `missing-title` — and
+   choose up to about ten related occurrences to fix. One template usually fixes many rows at once.
+   Selection only; do not edit anything yet.
+2. **Snapshot, and record two lists.** For batch `<n>`, before any edit:
+   - **Snapshotted** — every file that already exists and that you are about to change. Copy each to
+     `.seo-god/backup/<run-stamp>/batch-<n>/<original-relative-path>`, preserving the relative path
+     so restore is an unambiguous copy-back.
+   - **Created** — every file that does not exist yet and that this batch will add. These have no
+     snapshot; the list itself is what makes them undoable.
+
+   Do the copy with your own file tools: **Read** the file and **Write** it to the backup path. Write
+   creates missing parent directories, so a nested path like `src/app/blog/layout.tsx` works with no
+   `mkdir` step and no shell branching between OSes — a shell copy is the wrong tool here (on Windows
+   `Copy-Item` fails when the parent directory does not exist, and it fails quietly enough to leave
+   you thinking you have an undo you do not have). **Verify each backup file exists before the first
+   Edit of the batch.** A snapshot you did not confirm is not an undo.
+
+   If the batch grows mid-way, add the new file to the right list — and snapshot it if it exists —
+   *before* you touch it, never afterwards.
+3. **Edit**, then run `build_cmd`.
 4. Exit 0 → the batch is done. Record each issue as fixed, with its `issueType`, URL, and the files
    you changed.
 5. Non-zero → the batch is **not** done. Read the output, fix the cause, run it again. **Give this at
    most three attempts.** After a third failed gate, stop trying to fix forward: restore, and put that
    issue type on the punch list with the build error as the reason — an issue that fights the gate
    three times is telling you it is not a mechanical fix.
-6. **To restore, copy the files back from `.seo-god/backup/batch-<n>/` — only that batch's files, and
-   only from that batch's snapshot.** Then run `build_cmd` once more to confirm the tree is green
-   again, and drop **only this batch's** issues from the fixed ledger.
+6. **Restore = both lists, this batch only, this run's stamp only:**
+   - **delete** every file on the batch's *created* list, then
+   - **copy back** every file on its *snapshotted* list from
+     `.seo-god/backup/<run-stamp>/batch-<n>/`.
+
+   Done in that order the tree is pre-batch by construction. Copy-back alone is not a restore: it
+   never removes a file the batch added, and a leftover new file can keep the build red or, worse,
+   leave a stray page live on the site.
+7. Then run `build_cmd` once more to confirm the tree is green again, and drop **only this batch's**
+   issues from the fixed ledger.
+8. **If `build_cmd` is still red after a correct restore, stop the phase.** Do not start another
+   batch and do not paper over it. Report: exactly which files you deleted and restored, and the
+   persisting error verbatim. Compare it against the clean-tree baseline — the `build_cmd` run on the
+   untouched tree from section 2, before any edits. That is the reference point, and a break that
+   survives a correct restore is very likely pre-existing rather than yours; say which you believe it
+   is and why. Put the batch's issue type on
+   the punch list, leave `phases.audit` at `"in_progress"` — **do not set it to `"done"`** — and
+   claim nothing from that batch as fixed. Never exit this branch silently.
 
 **Never restore with `git checkout -- <files>`.** That reverts to the last commit, not to the start
 of this batch — so a red batch 3 touching a file that batch 1 already fixed and verified would
 silently undo batch 1's work while the ledger still counts it as fixed. That is the honesty rule
-broken by the tool meant to protect it. Copy-back from the batch snapshot cannot do this: earlier
-batches survive by construction, and it works identically in a project with no git at all.
+broken by the tool meant to protect it. The two-list restore above cannot do this: it only ever
+touches files this batch listed, so earlier batches survive by construction — and it works
+identically in a project with no git at all.
 
 Never leave the tree broken to move faster, and never count a restored batch as fixed. `.seo-god/`
 is gitignored, so the snapshots never enter the user's repository; they are scratch for this run.
@@ -284,6 +318,10 @@ Nothing that you could have fixed in the repo goes on this list to avoid the wor
 this list goes into the fixed count.
 
 ## 8. Finish
+
+You only reach this section by finishing the triage. If the fix loop stopped you on a still-red
+gate after a restore, that branch owns the ending: `phases.audit` stays `"in_progress"` and nothing
+below applies.
 
 Set `phases.audit` to `"done"` in `seo-god.json` — read, modify, write the whole object, preserving
 every key you do not recognise, keeping `version: 1` — and write it to disk immediately.

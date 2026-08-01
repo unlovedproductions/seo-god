@@ -76,7 +76,15 @@ volumes:
   openseo-data:
 ```
 
-Every line is load-bearing — do not "simplify" it:
+**One exception to "exactly this content": if `.seo-god/docker-compose.yml` already exists and its
+`open-seo` service carries an `env_file:` key, keep that key and its list in the rewrite.** The
+MEASURE phase adds it to point at `.seo-god/secrets.env` for Google Search Console, and SKILL.md
+routes back here whenever `openseo.status` is not `"running"` — so a verbatim rewrite would silently
+delete the user's GSC configuration and the container would come back up with Search Console dark
+and no error anywhere. It is the one line in this file that is user state rather than skill state.
+Nothing else in an existing file is preserved: rewrite the rest exactly as above.
+
+Every other line is load-bearing — do not "simplify" it:
 
 - `127.0.0.1:` in the port mapping — `local_noauth` means the dashboard has **no authentication at
   all**. A bare `3001:3001` publishes it on every interface, i.e. to the whole local network. Keep
@@ -89,8 +97,10 @@ Every line is load-bearing — do not "simplify" it:
 - `openseo-data:/app/.wrangler` — the application database lives at `/app/.wrangler`. A volume
   mounted anywhere else (`/data`, for instance) persists **nothing**: the container starts fine,
   then every recreate silently comes back with an empty database and no projects.
-- no `env_file:` — OpenSEO's own repository compose file reads a `.env` and Compose errors out when
-  that file is absent. This one is self-contained on purpose.
+- no `env_file:` **when you are writing this file for the first time** — OpenSEO's own repository
+  compose file reads a `.env` and Compose errors out when that file is absent, so this one is
+  self-contained on purpose. MEASURE may add one later, pointing at a secrets file it creates
+  first; that is the exception above. Preserve it, never add one here yourself.
 - no API keys — with `DATAFORSEO_API_KEY` unset the startup preflight logs a `[warn]` and the app
   boots and serves normally. Paid keys stay an optional power-up.
 

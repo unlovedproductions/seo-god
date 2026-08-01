@@ -34,6 +34,14 @@ pattern in section 2) and match the host of `site_url` against each project's `d
 means setup did not finish; go back to `references/setup.md`. Every tool below takes `projectId`
 and it is **required**.
 
+**If OpenSEO stops answering at any point in this phase** — a connection refused, a timeout, a
+non-200 from `<openseo.url>/api/health` — stop where you are, on the same protocol section 5.2 uses
+for a crawl that cannot complete: report the failure verbatim and which step it happened on, leave
+`phases.measure` at `"in_progress"`, and **write no snapshot**. A partial snapshot is worse than
+none, because tomorrow's diff will read it as measured fact. Never fill the missing sections from
+the previous snapshot, from memory, or from an estimate. Point the user at `references/setup.md` to
+get the container back up; the phase resumes from the start on the next run.
+
 ## 2. The OpenSEO call pattern
 
 Identical to `references/audit.md` section 3: stateless JSON-RPC over a single
@@ -55,6 +63,7 @@ written against these tools, all registered by OpenSEO's MCP server:
 | `list_saved_keywords` | read the list back | `projectId`*, `search`, `tags`, `limit` |
 | `get_rank_tracker` | rank tracker configs and their latest positions | `projectId`*, `trackerId` |
 | `get_search_console_performance` | clicks / impressions / position from GSC | `projectId`*, `dimensions`, `dateRange`, `startDate`, `endDate`, `filters`, `rowLimit`, `startRow`, `type`, `dataState` |
+| `run_site_audit` | crawl the site when no completed audit exists (5.2) | `projectId`*, `url`*, `maxPages`, `runLighthouse` |
 | `get_audit_status` | the latest audit's id, status and `completedAt` | `projectId`*, `auditId` |
 | `get_audit_issues` | the issue report for the snapshot's `crawl.issues` | `projectId`*, `auditId`, `severity`, `issueType`, `limit` |
 | `get_audit_pages` | the true crawled-page count | `projectId`*, `auditId`, `fetchClass`, `statusCode`, `urlContains`, `limit` |
@@ -79,14 +88,32 @@ real clicks, impressions and average position, per query and per page. Everythin
 phase works without it — but the quick-wins and new-queries sections of the diff are mostly empty
 without it, and this is the one setup step worth ten minutes.
 
-Say that to the user, then ask: *"Connect Google Search Console now, or skip it for this run? It
-takes about ten minutes in the Google Cloud Console and needs a Search Console property you have
-already verified."* If they skip, go to section 3.7.
-
 Self-hosted OpenSEO cannot use a shared Google client — the user brings their own OAuth client.
 That is three values (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `BETTER_AUTH_SECRET`) and a
 container recreate, and none of it is optional. Walk the user through it screen by screen; do not
 summarise it as "set up OAuth".
+
+### 3.0 Already connected? Re-verify before you touch anything
+
+**Do this first, on every run, before you ask the user anything.** This phase runs again and again;
+the second run must not undo the first.
+
+Read `gsc.connected` from `seo-god.json`.
+
+- **`false`** → nothing is set up. Ask: *"Connect Google Search Console now, or skip it for this
+  run? It takes about ten minutes in the Google Cloud Console and needs a Search Console property
+  you have already verified."* Connect → 3.1. Skip → 3.7.
+- **`true`** → run the verification call in **3.6** right now, before anything else.
+  - `ok: true` → GSC is live. **Skip 3.1 through 3.5 entirely**, leave `gsc.connected` at `true`,
+    tell the user in one line that Search Console is already connected, and go to section 4. Do not
+    ask the connect-or-skip question: there is nothing to connect, and an answer of "skip" here
+    would disconnect a working integration. Do not re-run the OAuth walkthrough, and above all do
+    not touch the compose file — a second `env_file:` key is a duplicate mapping key and Compose
+    refuses to parse the file at all, which takes the container down.
+  - `ok: false` → the connection existed and has stopped working: a revoked or expired grant, a
+    property unbound in the dashboard, or a container recreated without the environment. Tell the
+    user what `reason` came back, then re-enter the walkthrough at the step that reason points at
+    (3.6 lists the mapping). Only now may `gsc.connected` become `false`.
 
 ### 3.1 Google Cloud project, and the Search Console API
 
@@ -130,7 +157,7 @@ They do not need to submit for verification. Testing mode is enough for personal
    With the default port that is `http://localhost:3001/api/gsc/oauth/callback` — the form
    OpenSEO's own self-hosting documentation names for local Docker. Scheme, host and port must
    match exactly and there is no trailing slash. If Google refuses to save one of the two lines,
-   keep the one it accepts and remember that the user must browse to that exact origin in 3.6.
+   keep the one it accepts and remember that the user must browse to that exact origin in 3.5.
 
    If the user reaches OpenSEO through anything other than loopback — a reverse proxy, a tunnel, a
    LAN address — the redirect URI is *that* origin plus the same path, and it is the only one that
@@ -140,12 +167,14 @@ They do not need to submit for verification. Testing mode is enough for personal
 ### 3.4 Give OpenSEO the three values
 
 Secrets go in `.seo-god/secrets.env`, which is inside the already-gitignored `.seo-god/` directory.
-Confirm `.gitignore` still contains the `.seo-god/` line before writing (setup added it). Never put
-any of these values in `seo-god.json`, and never echo them back to the user.
+Before writing, make sure the project `.gitignore` contains `.seo-god/`; add the line if not — setup
+put it there, and a missing line means the next commit ships the user's Google client secret. Never
+put any of these values in `seo-god.json`, and never echo them back to the user.
 
 1. Ask the user to paste the client ID and client secret. Write them with your Write tool to
    `.seo-god/secrets.env`, one `KEY=value` per line, **no quotes and no `export`** — Compose reads
-   this file literally, so surrounding quotes become part of the value:
+   this file literally, so surrounding quotes become part of the value. **End the file with a
+   newline**; step 2 appends to it:
 
    ```
    GOOGLE_CLIENT_ID=<the client ID they pasted>
@@ -154,15 +183,23 @@ any of these values in `seo-god.json`, and never echo them back to the user.
 
 2. Append a `BETTER_AUTH_SECRET` of at least 32 characters — it encrypts the stored OAuth tokens at
    rest, and Search Console stays disabled without it. Generate it straight into the file so it
-   never appears in the transcript:
+   never appears in the transcript. Both forms write a **leading blank line** so the append can
+   never concatenate onto an unterminated last line — a `GOOGLE_CLIENT_SECRET=…BETTER_AUTH_SECRET=…`
+   splice corrupts both values, and Google then answers the OAuth exchange with `invalid_client`:
 
    - macOS, Linux, Git Bash:
-     `printf 'BETTER_AUTH_SECRET=%s\n' "$(openssl rand -base64 32)" >> .seo-god/secrets.env`
+     `printf '\nBETTER_AUTH_SECRET=%s\n' "$(openssl rand -base64 32)" >> .seo-god/secrets.env`
    - Windows PowerShell (one line):
-     `$b=New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); Add-Content -Path .seo-god/secrets.env -Value ("BETTER_AUTH_SECRET=" + [Convert]::ToBase64String($b))`
+     `$b=New-Object byte[] 32; [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($b); Add-Content -Path .seo-god/secrets.env -Value @("", "BETTER_AUTH_SECRET=" + [Convert]::ToBase64String($b))`
 
-3. Point the container at the file. In `.seo-god/docker-compose.yml`, add one key to the
-   `open-seo` service, as a sibling of `environment:`:
+   Compose ignores blank lines in an env file, so the extra newline costs nothing. Afterwards check
+   the file has exactly three `KEY=` lines — without ever printing their values.
+
+3. Point the container at the file. **First look at `.seo-god/docker-compose.yml`: if it already
+   has an `env_file:` key, leave it exactly as it is and go to step 4.** A second `env_file:` under
+   the same service is a duplicate mapping key and Compose refuses to parse the file at all, which
+   takes the container down. Only when the key is absent, add it to the `open-seo` service as a
+   sibling of `environment:`:
 
    ```yaml
        env_file:
@@ -172,6 +209,11 @@ any of these values in `seo-god.json`, and never echo them back to the user.
    The path is bare because Compose resolves `env_file` relative to the compose file's own
    directory — which is `.seo-god/`. Create `secrets.env` **before** adding this line: Compose
    errors out when an `env_file` is missing, and that error looks nothing like a GSC problem.
+
+   One line to tell the user: `references/setup.md` step 3 rewrites this compose file verbatim, and
+   SKILL.md routes back to setup whenever `openseo.status` is not `"running"`. That file now carries
+   a clause preserving an existing `env_file:` line — but if the line ever disappears after a setup
+   re-run, GSC goes dark silently and this is the first place to look.
 
 4. Recreate the container so Compose reapplies the environment. Editing the file alone does not do
    it:
@@ -220,6 +262,10 @@ Troubleshooting, by the exact symptom:
 - **`redirect_uri_mismatch`** — the origin in the address bar is not one of the URIs saved in 3.3.
   Read the address bar, add that exact origin plus `/api/gsc/oauth/callback`, and retry.
 - **`access_denied`** — the Google account is not a test user on the consent screen (3.2).
+- **`invalid_client`** — Google rejected the client ID or secret. Either the value was pasted
+  wrong, or `.seo-god/secrets.env` has a spliced line because an append landed on a file with no
+  trailing newline (3.4 step 2). Check the file has exactly three `KEY=` lines, fix it, and recreate
+  the container.
 - **"Google OAuth client not configured"** on the card — the container does not have all three
   values. Back to 3.4 step 5.
 - **Connected, but the property list is empty** — that Google account has no verified property in
@@ -246,8 +292,13 @@ card alone.**
 
 ### 3.7 If they skip
 
+**This branch is reachable only from 3.0's `false` case or a failed re-verification.** A project
+whose verification call just returned `ok: true` never lands here, whatever the user answers —
+writing `gsc.connected: false` over a live connection would report a working integration as "not
+measured" and throw away the setup they already did.
+
 This is a supported path, not a degraded one. Leave `gsc.connected` at `false`, do not create
-`.seo-god/secrets.env`, and continue with sections 4-6 unchanged. Every snapshot then carries
+`.seo-god/secrets.env`, do not touch the compose file, and continue with sections 4-6 unchanged. Every snapshot then carries
 `"gsc":{"available":false,"clicks28d":0,"impressions28d":0,"top_queries":[]}` — the zeros are
 inert placeholders that satisfy the schema, and `available:false` is the only thing any consumer
 may read. Say once, plainly, that clicks, impressions and query data are **not measured** until GSC
@@ -410,8 +461,10 @@ under-count, because Google withholds anonymised queries and the row list is cap
 ```
 
 `clicks28d` = the sum of `clicks` over `result.structuredContent.rows`; `impressions28d` = the sum
-of `impressions`. Keep the per-date rows in memory — section 6 uses them for the week-over-week
-check. Each row's `keys[0]` is the date.
+of `impressions` — order does not matter for a sum. Keep the per-date rows in memory: section 6
+uses them for the week-over-week check, and that one **does** depend on order. Each row's `keys[0]`
+is the date, and like G2 these rows arrive **sorted by clicks descending, not by date**, so they
+must be sorted by `keys[0]` before anything splits them into weeks.
 
 **G2, the queries:**
 
@@ -504,11 +557,12 @@ One guard: if you reused an existing audit in 5.2 rather than crawling in this s
 <previous date>"* — **not** "no new issues". Two snapshots that share one audit cannot disagree,
 and reporting that as a clean bill of health is a lie the user would act on.
 
-**GSC clicks down 20% or more week over week.** With GSC connected, take it from G1's per-date rows:
-sum `clicks` over the most recent 7 dates, sum the 7 dates before those, and flag when the recent
-week is at least 20% below. This is exact and needs no previous file. If G1's rows are unavailable
-but both snapshots have `gsc.available: true`, fall back to comparing `clicks28d` and say which
-comparison you used. If either snapshot has `gsc.available: false`, the line is *"GSC: not
+**GSC clicks down 20% or more week over week.** With GSC connected, take it from G1's per-date rows
+— **sort them by `keys[0]` first** (5.4: they arrive clicks-desc, not date-ordered, and splitting
+them unsorted compares two arbitrary sets of dates). Then sum `clicks` over the most recent 7 dates,
+sum the 7 dates before those, and flag when the recent week is at least 20% below. This is exact and
+needs no previous file. If G1's rows are unavailable but both snapshots have `gsc.available: true`,
+fall back to comparing `clicks28d` and say which comparison you used. If either snapshot has `gsc.available: false`, the line is *"GSC: not
 measured"* — never "0 clicks", and never a percentage computed against a zero placeholder.
 
 ### 2. Quick wins — positions 4 to 15
@@ -517,10 +571,19 @@ Everything ranking in positions **4-15**: on page one's lower half or the top of
 better title, a real answer near the top, or an internal link can move it into the clicks.
 
 Source in this order: tracked-keyword positions where a rank tracker measured them; otherwise GSC
-query positions from `top_queries` where `4 <= position <= 15`. Sort by impressions descending —
-the highest-impression near-misses are the cheapest traffic in the file. For each: the query, its
-position, its impressions, and the page currently ranking (from `ranks[].url`, or from a GSC call
-with `dimensions:["query","page"]` filtered to that query).
+query positions from `top_queries` where `4 <= position <= 15`.
+
+**Report only the fields the source actually has.** A `ranks[]` row is `{keyword, position, url}`
+and carries **no impressions** — for tracked-keyword entries report the keyword, its position and
+its ranking URL, and nothing else. Impressions belong to GSC-sourced rows only, where
+`top_queries[]` really measured them. Never carry a number across from the other source, and never
+print `0` for a field the snapshot does not have.
+
+- **GSC-sourced rows**: query, position, impressions, and the ranking page (a GSC call with
+  `dimensions:["query","page"]` filtered to that query). Sort by impressions descending — the
+  highest-impression near-misses are the cheapest traffic in the file.
+- **Rank-tracker rows**: keyword, position, ranking URL. Sort by position ascending; impressions do
+  not exist here, so they cannot order anything.
 
 Neither source available → *"Quick wins: not measured — needs Search Console or a rank tracker."*
 An empty list because nothing sits in that band is a different statement, and must read differently.
@@ -539,7 +602,10 @@ today's `hasMore` was true, add that new arrivals outside the top 200 are not vi
 Update `seo-god.json` — read, modify, write the whole object, preserving every key you do not
 recognise, keeping `version: 1`:
 
-- `gsc.connected` — `true` only if section 3.6 returned `ok: true`; otherwise `false`.
+- `gsc.connected` — `true` whenever the 3.6 verification call returned `ok: true` in this run,
+  whether it ran from 3.0 on an already-connected project or at the end of the walkthrough.
+  `false` only after a verification that actually failed, or when GSC was never connected. Never
+  write `false` because the user answered "skip" to a question 3.0 should not have asked.
 - `keywords` — the agreed list from section 4.
 - `phases.measure` — `"done"`.
 

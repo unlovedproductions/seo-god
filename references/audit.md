@@ -253,7 +253,10 @@ edit, not after the first failure.
    issue type on the punch list with the build error as the reason — an issue that fights the gate
    three times is telling you it is not a mechanical fix.
 6. **Restore = both lists, this batch only, this run's stamp only:**
-   - **delete** every file on the batch's *created* list, then
+   - **delete** every file on the batch's *created* list — your file tools cannot delete, so this
+     is the one step that needs the shell: `rm` on macOS, Linux and Git Bash, `Remove-Item` on
+     Windows PowerShell. Then confirm each one is gone with your file tools, and remove any
+     directory the batch created once it is empty — then
    - **copy back** every file on its *snapshotted* list from
      `.seo-god/backup/<run-stamp>/batch-<n>/`.
 

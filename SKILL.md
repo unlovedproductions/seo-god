@@ -101,7 +101,7 @@ are not phases and have no entry in `phases`; they are always available once set
 | setup | `references/setup.md` | `site_url`, `openseo.url`, `openseo.status`, `phases.setup` |
 | audit | `references/audit.md` | `build_cmd`, `phases.audit` |
 | measure | `references/measure.md` | `gsc.connected`, `phases.measure` |
-| act (daily loop) | `references/act.md` | nothing — writes snapshots and readouts in the project |
+| act (daily loop) | `references/act.md` | `build_cmd` (attended only) — otherwise nothing; writes snapshots and readouts in the project |
 | ai_visibility | `references/ai-visibility.md` | `ai_prompts_locked`, `phases.ai_visibility` |
 | schedule | `references/schedule.md` | `schedule.mode`, `schedule.time_local`, `phases.schedule` |
 | power-ups | `references/power-ups.md` | `power_ups.*` |

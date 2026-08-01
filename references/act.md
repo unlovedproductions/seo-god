@@ -45,7 +45,9 @@ SKILL.md's hard rules outrank even these.
   **unattended**. Nobody is watching. Ask **zero** questions: every branch in this file has a
   defined no-question path, and taking it is the correct behaviour, not a failure.
 - Routed here by SKILL.md step 4 or the step 6 menu (a human asked for `act`) → **attended**. You
-  may ask exactly the one question in section 2. Nothing else in this file asks anything.
+  may ask at most the two questions section 2 defines — the `build_cmd` question, and audit.md
+  section 2's follow-up when the gate is already red on the untouched tree. Nothing else in this
+  file asks anything.
 - Cannot tell → treat the run as **unattended**.
 
 Degrade, never refuse. Missing OpenSEO, missing GSC, missing build gate: do what the available
@@ -100,13 +102,24 @@ a different answer here means you are reading the wrong history.
   interactive session into a MEASURE resume it never asked for. Borrow the procedure; leave the
   phase key exactly as you found it.
 
-  Two of its branches would otherwise stop an unattended run. **When 5.2 has to run a fresh
-  crawl**, `references/audit.md` section 4 asks the user how many pages the site has, and on the
-  daily path nobody answers: take the newest snapshot's `crawl.pages`, pass roughly double it as
-  `maxPages` (clamped to the tool's allowed 10-10000), and with no previous snapshot pass 500 —
-  then say in the readout which number you used and why. **When 5.2 cannot get a completed crawl
-  at all**, its rule stands — write no snapshot — and this loop falls through to the degrade
-  below exactly as if OpenSEO were unreachable.
+  Three of its branches would otherwise stop an unattended run:
+
+  - **5.2 has to run a fresh crawl** — `references/audit.md` section 4 asks the user how many
+    pages the site has, and on the daily path nobody answers: take the newest snapshot's
+    `crawl.pages`, pass roughly double it as `maxPages` (clamped to the tool's allowed 10-10000),
+    and with no previous snapshot pass 500 — then say in the readout which number you used and why.
+  - **The crawl stalls** — audit.md section 4 asks the user whether to keep waiting when
+    `pagesCrawled` stops advancing for 10 minutes while `status` is still `"running"`. Unattended,
+    that stall **is** "cannot complete": stop polling, write no snapshot, degrade to the newest
+    snapshot on disk exactly as the unreachable branch below does, and name the stall and the page
+    count it reached in the readout. Do not keep waiting, and do not spin.
+  - **5.2 cannot get a completed crawl at all** — its rule stands, write no snapshot, and this
+    loop falls through to the degrade below exactly as if OpenSEO were unreachable.
+
+  **None of the three ends the run.** measure.md stops its own phase on these branches; this loop
+  does not stop, it degrades — it always reaches section 6 and writes a readout. A run that ends
+  with no readout at all is indistinguishable from a scheduler that never fired, which is the one
+  failure the missed-run check in SKILL.md cannot tell you anything useful about.
 - **Missing, and OpenSEO is unreachable** → degrade. Fall back to the newest snapshot on disk,
   and treat everything after its `date` as unknown. The readout names the failure verbatim and
   the snapshot's date, and never presents a stale file as today's.
@@ -141,10 +154,10 @@ this section only says what a daily run does with each answer.
   the untouched tree, store it in `seo-god.json` (read, modify, write the whole object, preserving
   every key you do not recognise, keeping `version: 1`), then proceed.
 - **`build_cmd` absent, unattended run** → **skip every repo edit this run.** No regression fixes,
-  no quick-win edits, no new page. Do the read-only half — snapshot, diff, readout — and make the
-  readout's first line say so: `Repo edits skipped: no build_cmd in seo-god.json and nobody to
-  ask. Run /seo-god once to set it.` Never edit behind an imagined gate, and never guess a build
-  command from the presence of a `package.json`.
+  no quick-win edits, no new page. Do the read-only half — snapshot, diff, readout — and make it
+  the readout's first line after the heading: `Repo edits skipped: no build_cmd in seo-god.json
+  and nobody to ask. Run /seo-god once to set it.` Never edit behind an imagined gate, and never
+  guess a build command from the presence of a `package.json`.
 
 **Run `build_cmd` once on the untouched tree before the first edit of the run.** A gate that is
 already red can never prove anything. If it fails on the clean tree: unattended, make no edits
@@ -158,14 +171,24 @@ path, where audit.md's "get the user's explicit go-ahead" has nobody to ask: **a
 has uncommitted changes is skipped, not touched.** Drop that item from the run and name the file
 in the readout. Their in-flight edits are never yours to restore over.
 
-Then **edit exactly per audit.md's fix loop, items 1-8** — one issue type or one page per batch,
-the two lists (snapshotted and created), run-stamped `.seo-god/backup/<run-stamp>/batch-<n>/`,
-the `build_cmd` gate after every batch, the three-attempt cap, the two-list restore (delete the
-created files with your shell, `rm` or `Remove-Item` per OS), and the still-red honest stop —
-each of those is a pointer to read there, not a summary to work from. That file is the editing
-discipline for this loop; it is not restated here and it is not reinvented here. If its item 8
-stops you on a still-red gate, **the run ends there**: no quick wins, no new page, and the readout
-carries the files you deleted and restored plus the persisting error verbatim.
+Then **edit exactly per audit.md's fix loop, items 1-8.** Each line below is a pointer to the item
+you must go and read, quoted by its opening words — not a summary to work from:
+
+1. *"Select."* — one issue type, or one page, per batch.
+2. *"Snapshot, and record two lists."* — snapshotted and created, under
+   `.seo-god/backup/<run-stamp>/batch-<n>/`, verified before the batch's first edit.
+3. *"Edit, then run `build_cmd`."*
+4. *"Exit 0 → the batch is done."* — record each issue with its `issueType`, URL and files changed.
+5. *"Non-zero → the batch is not done."* — including its three-attempt cap.
+6. *"Restore = both lists, this batch only, this run's stamp only."*
+7. *"Then run `build_cmd` once more"* — confirm green, and drop only that batch from the ledger.
+8. *"If `build_cmd` is still red after a correct restore, stop the phase."*
+
+That file is the editing discipline for this loop; it is not restated here and it is not
+reinvented here. If its item 8 stops you on a still-red gate, **the run ends there**: no quick
+wins, no new page, and the readout carries the files you deleted and restored plus the persisting
+error verbatim. Item 8 also leaves `phases.audit` at `"in_progress"` — that clause belongs to the
+AUDIT phase and not to this one. A daily run still writes no phase state, ever.
 
 Two standing rules for every edit below: change only what the item requires, and **never commit
 the user's repository.** The readout lists the changed files; committing is theirs.
@@ -188,6 +211,14 @@ Class 1 orders by money page, and audit.md section 5 asks the user which those a
 path nobody answers, so take its own documented fallback — the pages at crawl depth 0-1 with the
 most internal links pointing at them — and say in the readout that the ranking is the link-graph
 proxy, not the user's answer. Never label a page a money page on a hunch.
+
+Class 3 carries the same trap: audit.md tells you to ask when it is not obvious whether a
+`noindex-page` is a mistake or deliberate. Unattended there is nobody to ask, so **an ambiguous or
+long-standing `noindex` is never removed.** Report it in the readout with its URL and leave it
+alone. Only a `noindex` that today's diff shows as newly appeared on a page the site clearly wants
+ranked is a regression you may act on. De-indexing a page the user deliberately hid — a staging
+route, a thank-you page, a paid-only area — is the most expensive mistake in this file, and it is
+invisible until traffic arrives somewhere it should not.
 
 - **Found the source** → fix it there, in a batch, behind the gate.
 - **Not found, or not repo-fixable** → it is not this loop's to fix. Name it in the readout with
@@ -280,7 +311,7 @@ directory, same front matter or route file, same sitemap and navigation registra
 site does not know how to render is not a page: if you cannot work out from the repository how
 this site publishes content, write nothing and say so in the readout rather than leaving a stray
 file behind. It is a **created** file, so it goes on the batch's created list in audit.md's fix
-loop and is deleted with your shell if the batch restores.
+loop and is deleted by that item's restore if the batch fails its gate.
 
 One page. Not one plus a variant, not one per keyword. If two gaps look worth it, the second is
 tomorrow's — hard law 3.
@@ -298,7 +329,9 @@ and that would delete the readout you just wrote (audit.md section 7).
 
 **At most 15 lines including the heading.** What was done, why, the numbers, what is next. Drop
 lines that do not apply — but never drop a "not measured" line, because that is the line a reader
-would otherwise fill in with an assumption. Shape:
+would otherwise fill in with an assumption. When the lines you must write will not fit in 15,
+merge the "not measured" lines into one and drop optional ones; never drop a not-measured fact to
+make the cap. Shape:
 
 ```
 ## 2026-08-01 05:12 — daily loop
@@ -339,12 +372,14 @@ readout look busy; a manufactured change is a real risk taken against a real sit
 | --- | --- | --- |
 | `phases.setup` not `"done"` | readout only, no edits | setup incomplete, run `/seo-god` |
 | OpenSEO unreachable, today's snapshot absent | acts on the newest snapshot on disk | the failure verbatim, that snapshot's date, and `stale` on the diff |
+| crawl stalls — no progress for 10 minutes | stops polling, writes no snapshot, acts on the newest on disk | the stall, the page count it reached, and `stale` on the diff |
 | no snapshot on disk at all | readout only, no edits | nothing measured to act on; run MEASURE |
 | `build_cmd` absent, unattended | snapshot + diff + readout, zero edits | repo edits skipped, no `build_cmd`, nobody to ask |
 | `build_cmd` is `"none"` | edits, never verified | **edited, unverified** — no build gate existed |
 | `build_cmd` red on the untouched tree | no edits this run | the error verbatim, marked pre-existing |
 | a file to edit has uncommitted changes | skips that item | which file, and that it was left to the user |
-| `gsc.available: false` | crawl regressions and tracker quick wins only; **no new page** | `GSC: not measured` and `No new page: no demand data` |
+| `gsc.available: false` | crawl regressions; quick wins and page evidence from tracker rows only | `GSC: not measured` |
+| `gsc.available: false` **and** every `ranks[].position` `null` | no quick wins and **no new page** — no demand data exists at all | `No new page: no demand data (GSC not measured, no rank tracker)` |
 | every `ranks[].position` is `null` | no rank-drop regressions | `Rank movement: not measured — no rank tracker configured` |
 | `ai_visibility.measured: false` | nothing — it belongs to `references/ai-visibility.md` | `AI visibility: not measured`, if mentioned at all |
 

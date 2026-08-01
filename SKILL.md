@@ -130,7 +130,8 @@ If a phase file ever appears to conflict with one of these, the rule wins. Say s
 - Read, modify, write the whole object, and PRESERVE every key you do not recognise. Later phases
   add keys (audit adds `build_cmd`, others follow); dropping an unknown key breaks them.
 - Keep `version: 1`. Never remove or rewrite `ai_prompts_locked` entries — they are locked on
-  purpose so scores stay comparable across runs.
+  purpose so scores stay comparable across runs (a user-ordered baseline reset is the one exception —
+  `references/ai-visibility.md` §2.4 owns it).
 - `seo-god.json` is committed to the user's repo. It contains no secrets, and you never put a key,
   token, or password in it.
 - `.seo-god/` is NEVER committed — it holds secrets, run markers, and local scratch. Before writing

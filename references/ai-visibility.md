@@ -64,9 +64,10 @@ watching: the whole value of the lock is that a human agreed to it.
 Read `seo-god.json` from the current working directory. You need:
 
 - `site_url` — the site being measured, and the source of the match target below.
-- `ai_prompts_locked` — the locked prompt set. Empty array → this is the first run: go to section 2
-  attended, or take section 0's skip unattended. Non-empty → the set is locked; go straight to
-  section 3 and do not regenerate it, whatever it looks like to you now.
+- `ai_prompts_locked` — the locked prompt set. **Absent, `null`, or an empty array all mean the same
+  thing: no set is locked.** Treat them identically — go to section 2 attended, or take section 0's
+  skip unattended — and never read a missing key as a reason to stop. Non-empty → the set is locked;
+  go straight to section 3 and do not regenerate it, whatever it looks like to you now.
 - `keywords` — measure.md's agreed keyword list, if it exists. Raw material for section 2.1.
 - `phases.ai_visibility` — `"done"` means a first run already completed here.
 - `phases.setup` — SKILL.md gates this phase on it being `"done"` and routes elsewhere when it is
@@ -168,8 +169,10 @@ never changes again either.
 Then write `seo-god.json` in one read-modify-write, preserving every key you do not recognise and
 keeping `version: 1`:
 
-- `ai_prompts_locked` — the confirmed strings, in order, exactly as agreed. No trailing whitespace,
-  no numbering, no added quotes; the string in this array is the string section 3.2 searches.
+- `ai_prompts_locked` — the confirmed strings, exactly as agreed: **the branded-adjacent five first,
+  then the unbranded five, in the order you showed them.** No trailing whitespace, no numbering, no
+  added quotes; the string in this array is the string section 3.2 searches. That order is the only
+  record of which half a prompt belongs to, and section 5's split line depends on it.
 - `phases.ai_visibility` — `"in_progress"`.
 
 Write it to disk **before** the ten searches. They are the slow part, and an interrupted run must
@@ -207,6 +210,11 @@ had measured usually means.
    AI visibility baseline reset — prompt set replaced on <YYYY-MM-DD>; scores before this date are not comparable.
    ```
 
+   **Write it after your final `build_cmd` run of the session**, per section 5's write-last rule.
+   Some build commands wipe `dist/` before rebuilding, and this one line is the entire durable record
+   of the reset: lose it and section 5 step 2's search finds nothing, so the next run trends today's
+   score against a snapshot measured on the old set — exactly the lie the lock exists to prevent.
+
 Section 5 reads that line back before it draws any trend.
 
 ## 3. Measure — one `WebSearch` call per locked prompt
@@ -243,34 +251,47 @@ query.**
   several.
 - A call that errors or times out gets **at most one retry**. If it fails twice, that prompt is not
   `ok` — record which prompt failed and why, and move on.
+- A call that comes back with **no results is not a failure.** It answered; the answer was "nothing".
+  Do not retry it, do not reword it to coax results out of it.
 
-Keep, per prompt: whether the call succeeded, and every result host you saw.
+Keep, per prompt: whether the call returned without error, and every result host you saw — an empty
+host list is a real observation, not a missing one.
 
 ### 3.3 Scoring — what each number in the block means
 
-**`prompts_ok`** — how many of the searches actually succeeded and returned results. Not how many
-you sent. A failed search is not a "not cited": it is a question nobody asked.
+**`prompts_ok`** — how many of the searches **returned without error**. Not how many you sent, and
+not how many found something: a search that came back with an empty result set is `ok`, because it
+measured the question honestly and the honest answer was "nothing there". It counts as a prompt that
+ran and produced no hit. Only an error, a timeout, or a refusal — twice, per 3.2 — makes a prompt not
+`ok`, and that is a question nobody managed to ask.
 
-**`cited`** — how many prompts had **at least one** result carrying the user's domain. It counts
+**`cited`** — how many prompts had **at least one result URL** on the user's domain. It counts
 prompts, not URLs: three pages of theirs in one result set is still one prompt. So `cited` can never
 exceed `prompts_ok`.
 
 The domain match, exactly:
 
-- A result matches when its URL's host, lowercased and stripped of a leading `www.`, either **equals**
-  the bare host or **ends with `"." + bare host`**. Subdomains count: `docs.example.com` is a hit.
-- The same rule applies to a domain written out in a result's title or snippet text.
+- **Result URLs only.** Take each result's URL, lowercase its host, strip a leading `www.`. It
+  matches when that host either **equals** the bare host or **ends with `"." + bare host`**.
+  Subdomains count: `docs.example.com` is a hit.
+- **Text does not count.** A domain written out in a title or snippet is usually someone else's page
+  talking about them — a competitor's comparison article naming the user is a result for the
+  competitor, not a hit for the user. Treat those exactly like the brand-name case below.
 - **Never substring-match.** `notexample.com` contains `example.com` and is a different company; the
   leading-dot rule is what keeps it out.
-- The brand **name** with no domain anywhere is not a hit. You may mention it in the readout prose
-  ("named without a link in 2 prompts") — it never moves the number.
+- The brand **name**, or the domain as plain text, with no result URL on the domain, is **not a hit**.
+  You may mention it in the readout prose ("named in the text of 2 prompts without a link") — it
+  never moves the number.
 
 **`competitors`** — `{ "<host>": <count> }`, where count is **how many prompts that host appeared
-in**. Build it from every third-party host you saw, normalised by the same rule (lowercased, `www.`
-stripped, subdomains folded into the registrable host), excluding the user's own domain. Keep the
-**top 10 by count, ties broken alphabetically** — sort before capping, so the same results always
-produce the same ten and tomorrow's diff cannot invent a newcomer out of truncation. Say in the
-readout when more were seen than kept.
+in**. Build it from the hosts of every third-party **result URL** you saw, normalised exactly as
+above — lowercased, leading `www.` stripped — and keyed by **that host as it appears**, excluding the
+user's own domain. Do not try to fold subdomains into a "registrable domain": working out where a
+public suffix ends needs a suffix list this skill does not ship, and guessing produces a key that
+means nothing. Two subdomains of one site are two keys, which is the honest reading of what you saw;
+say so in the readout when it happens. Keep the **top 10 by count, ties broken alphabetically** —
+sort before capping, so the same results always produce the same ten and tomorrow's diff cannot
+invent a newcomer out of truncation. Say in the readout when more were seen than kept.
 
 One honesty note that belongs with this key every time it is reported: this list is *the domains
 that took the answer slots*, which includes directories, marketplaces, forums and publishers. Do not
@@ -280,11 +301,18 @@ present a review site as the user's business competitor.
 readout says which four failed. `0` out of `10` when only six ran is the exact lie this phase and
 `references/measure.md` both exist to prevent.
 
+**`prompts_ok` of zero is not a measurement at all.** When every search failed, there is no score:
+`measured` stays `false`, you write **no** snapshot block (section 4 is skipped entirely), and the
+readout says how many searches were attempted, that all of them failed, and the error verbatim.
+`{"measured": true, "prompts_ok": 0, "cited": 0}` would be preserved by measure.md section 5.5 as a
+real measurement and would read downstream as "asked, never cited" — which is the say/never-say
+table's forbidden claim written into a file instead of a sentence.
+
 ## 4. Write the snapshot block
 
-**Skip this entire section when section 3 did not measure** — no `WebSearch` tool, or the
-unattended skip in section 0. A non-measurement writes nothing anywhere: it is reported in the
-readout and that is all.
+**Skip this entire section when section 3 did not measure** — no `WebSearch` tool, the unattended
+skip in section 0, or every search failing (`prompts_ok` of zero, 3.3). A non-measurement writes
+nothing anywhere: it is reported in the readout and that is all.
 
 ### 4.1 Read, modify, write — you own one block and nothing else
 
@@ -303,6 +331,13 @@ section 5, or the two halves of this run land in different directories.
 Today's file exists → **read it, replace only `ai_visibility`, write the whole object back** with
 your Write tool. Never shell redirection: quoting differs between PowerShell and POSIX shells and a
 mangled snapshot is a silently corrupted history.
+
+Today's file exists but **will not parse** — truncated, half-written, hand-edited — → treat it
+exactly as absent and follow 4.2, which captures today fresh and replaces it. Never attempt a partial
+merge into a file you could not read: you would be guessing at the other sections' contents, and
+`crawl` in particular is a claim about the site. A snapshot is derived data, not the user's own work,
+so replacing an unreadable one is safe — but **name the file and the parse error in the readout**, so
+a corruption that keeps recurring is visible rather than quietly repaired every day.
 
 ```json
 "ai_visibility": { "measured": true, "prompts_ok": 10, "cited": 6, "competitors": { "competitor-one.com": 7, "a-directory.com": 4 } }
@@ -359,6 +394,13 @@ the same resolution as 4.1). Read the file first if it exists and append — `re
 writes its daily section into the same file, and a second write on the same day adds a section, it
 never overwrites one. Write it with your Write tool, never with shell redirection.
 
+**Write it after your final `build_cmd` run** — `references/act.md` section 6's rule, and it matters
+more here than there. Some build commands wipe `dist/` before rebuilding, and this directory is not
+just a report: it is the only store of the baseline-reset marker (2.4) and of playbook progress
+(section 6). A readout deleted by a build takes both with it, and the next run then trends across a
+reset and re-does an item that was already done. If a playbook item in 6.5 caused edits, the readout
+is written **after** that item's last gate run, not before it.
+
 **At most 12 lines including the heading.** Never drop a "not measured" line to make the cap; drop
 optional detail instead.
 
@@ -366,13 +408,25 @@ optional detail instead.
 ## 2026-08-01 09:20 — AI visibility
 
 Search visibility on the locked 10-prompt set (results-page proxy, not AI-answer citation)
-Score: your domain appeared in results for 6 of the 10 prompts that ran (all 10 searches succeeded)
-Trend: 6/10 vs 4/10 on 2026-07-25 (+2)
+Score: your domain appeared in results for 6 of the 10 prompts that ran (all 10 searches returned)
+Split: branded-adjacent 4/5, unbranded commercial 2/5
+Trend: 6/10 vs 4/10 on 2026-07-25 (+2) — unbranded 2/5 vs 1/5
 Absent from results: "best invoicing tool for freelance designers"; "how do I chase an unpaid invoice"
 Answer slots taken by: competitor-one.com (7 prompts), a-directory.com (4), a-forum.com (3)
 Snapshot: dist/seo/snapshots/2026-08-01.json (ai_visibility block updated)
 Playbook: 4 items, next = answer-first page for "how do I chase an unpaid invoice"
 ```
+
+**The split line is not optional.** The two halves measure different things: the branded-adjacent
+five mostly confirm that people who already know the name can find it, and the unbranded five are the
+ones that bring strangers. A total that climbs on the branded half alone looks like progress and is
+not, so report both halves and carry the unbranded half into the trend line.
+
+The halves are recoverable from `ai_prompts_locked` itself: section 2.3 stores the branded-adjacent
+five first, then the unbranded five, in the order they were shown. If you cannot tell which prompt
+belongs to which half — a set locked in some other order — report the total only and say in the
+readout that the split is not recoverable. Never guess a prompt's half from how it reads to you, and
+never reorder the locked array to make it recoverable: that is an edit (2.4).
 
 The trend line, built honestly:
 
@@ -389,18 +443,30 @@ The trend line, built honestly:
 5. Cannot read the readouts directory at all → report today's numbers alone and say the history was
    not verified.
 
-Also in the readout, in one line each and only when they apply: which prompts failed to search;
-that more than ten competitor domains were seen and ten were kept; that this replaced an earlier
-measurement today; that no snapshot was written and why.
+Also in the readout, in one line each and only when they apply: which prompts failed to search and
+why; which prompts returned no results at all (they are `ok` and not-cited, 3.3); which prompts named
+the site in text without a result URL on the domain; that more than ten competitor domains were seen
+and ten were kept, or that two keys are subdomains of one site; that the split is not recoverable;
+that this replaced an earlier measurement today; that today's snapshot would not parse and was
+recaptured; that no snapshot was written and why.
 
 ## 6. The be-the-answer playbook
 
 Four items. They are the work; the score is only the instrument. Run them **in order, at most one
 per run** — the whole skill moves at one meaningful change a day on purpose.
 
-There is no state key for playbook progress, deliberately: the record is the readouts. Read the
-recent files in the readouts directory to see which items earlier runs recorded as done, and take
-the first that none of them does. An item you cannot confirm from a readout is not done.
+There is no state key for playbook progress, deliberately: the record is the readouts. To find where
+you are, **search the whole readouts directory** — every file in it, not a recent window — for the
+items earlier runs recorded as done, and take the first item none of them records. An item you cannot
+confirm from a readout is not done.
+
+Scan all of it rather than a 90-day window: these are one small markdown file per day, so reading
+them is cheap, and a window is not. An item finished 91 days ago would fall out of the window, get
+picked up again, and the likely result of "redoing" item 6.1 is a second page on a topic already
+covered — a near-duplicate, which is hard law 2. Cost is the wrong thing to optimise here. Newest
+first is fine, and you may stop early: as soon as a file records the item you were about to take, it
+is done. If the directory itself cannot be read, say in the readout that playbook progress was not
+verified and execute nothing this run.
 
 Every item below inherits `references/act.md`'s hard laws, and two of them are the ones this
 playbook strains hardest against:
@@ -490,6 +556,10 @@ When you execute one:
   cap, its restore — as the editing discipline. None of it is restated here.
 - Record in the readout what you did, which locked prompt it was aimed at, and how it will be
   verified. Never mark an item done because you started it.
+- **The readout is written after this item's final `build_cmd` run**, per section 5. An item that
+  edits the repo therefore delays the readout to the end of the run — and a build that wipes `dist/`
+  after you wrote it would delete the record that this item is done, so the next run would do it
+  again.
 
 ## 7. The upgrade — direct model probing
 
@@ -512,17 +582,27 @@ recognise, keeping `version: 1`:
   A run that measured nothing never completes the phase.
 - Nothing else. No `phases.act`, no `phases.power_ups`, no new keys.
 
-Write it to disk immediately. Then give the user the readout you just wrote, and point at what is
-next: the first playbook item, or ACT — the daily loop — if the item you just did was the last one.
+**If neither key changes, write nothing.** A repeat measurement on a `"done"` phase with an already
+locked set changes no state, and re-serialising the user's file to write identical values only risks
+reformatting it, churning their git diff, and making a phase that touched nothing look like it did.
+Compare before you write; skip the write when the object is unchanged.
+
+Otherwise write it to disk immediately. Then give the user the readout you just wrote, and point at
+what is next: the first playbook item, or ACT — the daily loop — if the item you just did was the
+last one.
 
 ### The degrade table — what a run does when something is missing
 
 | Missing | What this phase still does | What the readout must say |
 | --- | --- | --- |
 | `WebSearch` tool unavailable | no measurement; playbook still reported | `AI visibility: not measured — the WebSearch tool is not available in this session` |
-| `ai_prompts_locked` empty, unattended | nothing; no state written, no snapshot created | `AI visibility: not measured — prompt set not locked yet; run /seo-god ai-visibility attended once` |
+| `ai_prompts_locked` absent or empty, unattended | nothing; no state written, no snapshot created | `AI visibility: not measured — prompt set not locked yet; run /seo-god ai-visibility attended once` |
 | user declines to lock a set, attended | nothing; phase key left as found | the phase is available whenever they want it |
 | some searches failed | scores over `prompts_ok`, never over the set size | `cited` of `prompts_ok`, and which prompts failed |
+| **every** search failed (`prompts_ok` 0) | no score, no snapshot block, `measured` stays `false` | how many were attempted, that all failed, and the error verbatim |
+| searches returned but found nothing | a real measurement: those prompts are `ok` and not cited | the score, and which prompts returned no results |
+| today's snapshot will not parse | recaptures today per 4.2, replacing it | the filename and the parse error |
+| readouts directory unreadable | measures; verifies no playbook progress; executes no item | that playbook progress was not verified |
 | OpenSEO unreachable / no completed crawl, today's snapshot absent | measures anyway; writes **no** snapshot | today's numbers, the failure verbatim, and that no snapshot was written |
 | no earlier measured snapshot | today's numbers alone | `First measurement — no earlier run to compare against` |
 | baseline was reset since the last snapshot | today's numbers alone | `No comparable history — the prompt set was reset on <date>` |

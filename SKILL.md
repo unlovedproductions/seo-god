@@ -53,7 +53,9 @@ Only when `schedule.mode` is not `"none"`. Read the file path in `schedule.marke
 - Marker fresh (`ts` within 48h and `ok` true) → say nothing, continue.
 
 Do not soften, batch, or postpone this warning. A scheduler that silently stopped is exactly the
-failure this check exists to surface.
+failure this check exists to surface. One exception to the "offer two choices" part: when the
+invocation argument is `daily`, print the warning and continue straight to step 3 without asking —
+an unattended run must never stop to ask a question nobody will answer.
 
 **3. Argument `daily`** — the scheduled runner invokes `claude -p "/seo-god daily"`. Read
 `references/act.md`, run the daily loop, stop here. No menu, no questions: nobody is watching.

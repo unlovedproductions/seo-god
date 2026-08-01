@@ -109,13 +109,38 @@ Pull as its own step: the first download is large, and keeping it outside `up` k
 window in step 5 meaningful. Always pass both `-p seo-god` and `-f`, in that order, in every
 Compose command — the project name is what lets later phases address this same container.
 
+If `pull` fails — no network, GHCR unreachable, a manifest or authentication error — report the
+error verbatim, set `openseo.status` to `"error"`, leave `phases.setup` at `"in_progress"`, and
+stop. Do not run `up -d`: there is no image to start, and the failure the user needs to see is the
+pull error, not a second confusing one.
+
 If `up` fails with `Bind for 127.0.0.1:3001 failed: port is already allocated`, another process
 owns that port: return to step 3, choose a different host port, rewrite the file, retry.
 
 ## 5. Wait for it to answer
 
 Poll `http://127.0.0.1:3001/api/health` every 3 seconds until it returns HTTP 200, for up to 90
-seconds.
+seconds:
+
+```
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health
+```
+
+**Shell rule — applies to every curl command in this file, here and in step 6.** Check which shell
+you are in before the first request:
+
+- macOS, Linux, Git Bash: use the commands exactly as written; `\` line continuations are fine.
+- Windows PowerShell: call **`curl.exe`**, never bare `curl` (in Windows PowerShell 5.1 `curl` is
+  an alias for `Invoke-WebRequest`, which rejects these flags), put the **whole command on one
+  line** (a POSIX `\` continuation is a PowerShell parse error), and use `NUL` in place of
+  `/dev/null`. The poll above becomes:
+  `curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:3001/api/health`
+- Windows PowerShell, any request with a **JSON body** (all of step 6): do not inline the JSON.
+  Write it to a file and pass `-d "@thatfile"` — see the worked example in step 6. Verified:
+  PowerShell 5.1 silently strips the inner quotes out of a single-quoted JSON argument (curl then
+  receives `{jsonrpc:2.0,...}` and the call fails), while the backslash-escaped form that fixes 5.1
+  breaks on PowerShell 7, which passes the backslashes through literally. The `@file` form is the
+  only one that arrives byte-identical on both.
 
 Use `127.0.0.1`, not `localhost`. The compose file publishes on IPv4 loopback, and on some machines
 `localhost` resolves to IPv6 `::1` first — where either nothing listens or, worse, an unrelated
@@ -132,7 +157,10 @@ If 90 seconds pass without a 200, do not declare failure yet — look:
 docker compose -p seo-god -f .seo-god/docker-compose.yml logs --tail 40
 ```
 
-- `Building client + server...` → still building. Keep polling, hard cap 5 minutes.
+- `Building client + server...` → still building. Keep polling, hard cap 5 minutes. If that cap
+  passes with still no 200, treat it as a failure on the same protocol as the exited case below:
+  report the last log lines verbatim, set `openseo.status` to `"error"`, leave `phases.setup` at
+  `"in_progress"`, and stop.
 - `[FAIL]` preflight lines → the container refuses to start; fix exactly what the line names
   (almost always `AUTH_MODE`) and retry from step 4.
 - container exited or no such service → report the log verbatim, set `openseo.status` to `"error"`,
@@ -154,9 +182,8 @@ token and no `initialize` handshake — it is stateless JSON-RPC over a single H
 curl is enough. Do not add an MCP server to the user's Claude config for this; a new MCP server
 would not be usable until their next session anyway.
 
-On Windows, call `curl.exe`, not `curl`: in Windows PowerShell 5.1 `curl` is an alias for
-`Invoke-WebRequest` and these flags will fail. (PowerShell 7 has no such alias, and `curl.exe` is
-correct in both.)
+The shell rule from step 5 governs every command below. The blocks are written for macOS, Linux and
+Git Bash; on Windows PowerShell use `curl.exe`, one line, with the JSON body in a file.
 
 First list what already exists, so a re-run does not create a duplicate:
 
@@ -167,10 +194,24 @@ curl -s -X POST http://127.0.0.1:3001/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}'
 ```
 
-If a project already carries the site's host as its domain, reuse it and skip the create.
+The same call on Windows PowerShell — write the body to a scratch file, then one line. This is the
+pattern for every request in this step; adapt the payload and reuse it:
 
-Otherwise create one. Pass `site_url` straight through as `domain` — OpenSEO normalizes it to the
-bare registrable host (`https://www.example.com/blog` becomes `example.com`):
+```
+'{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}' | Set-Content -Path .seo-god\mcp-body.json -Encoding ascii
+curl.exe -s -X POST http://127.0.0.1:3001/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "@.seo-god/mcp-body.json"
+```
+
+The reply's `result.structuredContent.projects` is an array of
+`{ id, name, domain, locationCode, languageCode, url }` — `domain` is the bare host OpenSEO stored
+(`example.com`), and `result.content[0].text` carries the same list as one human-readable string.
+Compare the site's host against each `domain`: on a match, reuse that project's `id` and skip the
+create. An empty array (`"Projects (0)"`) means nothing is registered yet.
+
+Otherwise create one. `name` is the only required argument; `domain` is optional but you should
+always send it, because it sets the default target for the domain, backlink and rank tools. Pass
+`site_url` straight through as `domain` — OpenSEO normalizes it to the bare registrable host
+(`https://www.example.com/blog` becomes `example.com`):
 
 ```
 curl -s -X POST http://127.0.0.1:3001/mcp \

@@ -91,9 +91,23 @@ Adding a value:
   $k = 'DATAFORSEO_API_KEY'; Add-Content -Path .seo-god/secrets.env -Value @("", "$k=<the value>")
   ```
 
-Removing a value: read the file with the user's editor or rewrite it without that line, then recreate
-the container if it was wired in. Never leave a key line with an empty value — an empty
-`Authorization: Basic` header is a 401 that looks like a wrong password.
+Removing a value — a filter, so removing one secret never reads the others into the session:
+
+```
+# macOS, Linux, Git Bash — the braces keep a file whose ONLY line was that key from aborting the write
+K=DATAFORSEO_API_KEY
+{ grep -v "^$K=" .seo-god/secrets.env || true; } > .seo-god/secrets.env.tmp
+mv .seo-god/secrets.env.tmp .seo-god/secrets.env
+```
+
+```
+# Windows PowerShell (one line) — @() forces an array (on a one-line file a bare Get-Content returns a string and -notmatch answers True), and WriteAllLines keeps it UTF-8 with no BOM, which Compose needs
+$k = 'DATAFORSEO_API_KEY'; $p = (Resolve-Path .seo-god/secrets.env).Path; [System.IO.File]::WriteAllLines($p, (@(Get-Content -LiteralPath $p) -notmatch "^$k="), (New-Object System.Text.UTF8Encoding $false))
+```
+
+Then recreate the container if the file was wired into it. Never leave a key line with an empty
+value — an empty `Authorization: Basic` header is a 401 that looks like a wrong password, and an empty
+bot token is a 404 (section 3.2).
 
 > **Why these snippets assemble the line from a name and a value instead of writing it out
 > literally**: `scripts/skill-lint.mjs` fails the build on the literal pattern of a key name
@@ -112,8 +126,8 @@ and take a "no" as final for the session.
 | The user asks about backlinks or referring domains — nothing on the free path measures them | DataForSEO | One capped call per domain gives counts and first-seen dates |
 | The user disputes the proxy: *"but does ChatGPT actually name me?"* | LLM keys | The free score counts search results; a model key asks the models themselves, on the same locked prompts |
 | `references/ai-visibility.md` has a locked set and at least one measured day | LLM keys | Same ten prompts, so the upgrade is comparable to what you already have |
-| A schedule was just installed and the user asks how they will know it ran | Telegram | The runner can send the readout to your phone; the token stays in the gitignored secrets file |
-| SKILL.md's missed-run warning just fired | Telegram | A digest turns a silent gap into a message you notice the same day |
+| A schedule was just installed and the user asks how they will know it ran | Telegram | The runner can send the day's readout to your phone when a run **completes**; the token stays in the gitignored secrets file |
+| SKILL.md's missed-run warning just fired | Telegram | A message every morning is what makes a morning **without** one worth noticing — the digest never reports a failure itself, so SKILL.md's 48h warning stays the failure signal |
 
 Never: offer during `references/setup.md`; offer a paid key as the fix for something with a free fix;
 offer twice in one session after a no; bundle two power-ups into one question; or make any phase
@@ -151,7 +165,7 @@ into the container:
 
 So there are two levels, and the user chooses:
 
-| | Level 1 — file only | Level 2 — file + container |
+| | Level 1 — file only (check it is available — below) | Level 2 — file + container |
 | --- | --- | --- |
 | What you do | write the key into `.seo-god/secrets.env` | Level 1, plus the `env_file:` wiring and a container recreate (`references/measure.md` section 3.4 steps 3-4) |
 | This skill's capped reads (1.5) | work | work |
@@ -159,11 +173,27 @@ So there are two levels, and the user chooses:
 | Can browsing the dashboard spend money | no | **yes** — the visit-triggered call above |
 | Spend the section 1.4 ledger can see | all of it | only this skill's own calls |
 
-**Default to Level 1.** Go to Level 2 only when the user has said they want real rank positions or
-OpenSEO's own paid screens, and only after they have heard the "browsing costs money" line. Level 2's
-uncapped surface is the user's dashboard, driven by their clicks — this skill still never calls a paid
-OpenSEO MCP tool (`references/measure.md` section 2 keeps `get_domain_overview` off-limits for
-exactly this reason), and an unattended run never triggers one.
+**Check whether Level 1 is even available on this project, BEFORE you promise it.** The two levels are
+separable only while the container is *not* pointed at this file — and `references/measure.md` section
+3.4 step 3 wires `env_file: - secrets.env` into `.seo-god/docker-compose.yml` for Google Search
+Console, which is the SAME file this key goes into. So read `.seo-god/docker-compose.yml` first:
+
+- **No `env_file:` key** → Level 1 is real. Proceed, and say that connecting GSC later promotes this
+  project to Level 2 by itself, which is this paragraph again.
+- **`env_file:` present** → **Level 1 does not exist here.** Say it plainly: the key reaches OpenSEO
+  at the container's next recreate — a GSC re-verification, a setup re-run, an `up -d` after a
+  reboot — `checks.dataforseo` flips from `warn` to `ok`, and from then on opening a project dashboard
+  page can spend money with nothing inside OpenSEO capping it. Then make the user choose
+  **explicitly**: accept Level 2 with those consequences, or skip the power-up. Do not write the key
+  on a shrug, and **never delete the `env_file:` line to force Level 1** — that takes Search Console
+  down silently, and adding it back later as a second key takes the whole container down
+  (section 0.2).
+
+**Default to Level 1 wherever it exists.** Go to Level 2 only when the user has said they want real
+rank positions or OpenSEO's own paid screens, and only after they have heard the "browsing costs
+money" line. Level 2's uncapped surface is the user's dashboard, driven by their clicks — this skill
+still never calls a paid OpenSEO MCP tool (`references/measure.md` section 2 keeps
+`get_domain_overview` off-limits for exactly this reason), and an unattended run never triggers one.
 
 Once a tracker exists and the user has run a check, `references/measure.md` section 5.3 picks the
 stored positions up for free on the next run — reading a tracker costs nothing; checking it costs.
@@ -220,7 +250,7 @@ The real test is one free, unmetered call (this is also the balance floor in sec
 both from the same request):
 
 ```
-curl -s -H "Authorization: Basic $D4S_KEY" https://api.dataforseo.com/v3/appendix/user_data
+curl -s -m 90 -H "Authorization: Basic $D4S_KEY" https://api.dataforseo.com/v3/appendix/user_data
 ```
 
 - `tasks[0].result[0].money.balance` → the spendable balance in USD. `login` comes back too; it is a
@@ -250,12 +280,22 @@ it too: this fails closed, because "I could not check" is not "it is fine".
 it. The response also carries a top-level `cost` for the whole call; the two agree, and if they ever
 disagree take the larger. A task that failed can still carry a cost — add it anyway.
 
+`spent` lives in your working memory for the length of the run: there is no on-disk counter, and step
+5 writes the total once, at the end. **An interrupted run therefore records nothing** — the money was
+spent and the ledger will not show it. That is accepted rather than fixed: a write per call would make
+an advisory file into a second source of truth, and the balance floor already catches the drift on the
+next run, because it reads the real balance from DataForSEO rather than from this file.
+
 **4. The stop rule.** Before each call, if `spent >= cap`, **stop making paid calls for the rest of
 the run.** Do not shrink the request and try again, do not "finish the last one", do not wait and
 retry. Then finish the readout honestly: report what you did get, and name what you skipped and why
 ("backlink summaries for 3 of 5 competitors skipped — per-run budget reached at $0.50"). A truthful
 partial readout is the intended outcome of a cap being hit; a complete readout that quietly overspent
 is a bug.
+
+**The cap stops the NEXT call; it cannot un-spend the current one.** A call already sent completes and
+its cost is added, so a run can end a little over the cap — plan for `cap + the cost of one call`, and
+choose the cap on that basis instead of expecting a ceiling exact to the cent.
 
 **5. The ledger.** Append one entry per run that made at least one paid call to `.seo-god/spend.json`,
 creating the file if it is absent. Write it with your Write tool as a read-modify-write, never with
@@ -274,6 +314,11 @@ it — so a hand-deleted run cannot leave a phantom total behind. A run that mad
 nothing. `.seo-god/` is gitignored, so this ledger is local and a fresh clone starts empty: the cap
 that actually binds is per-run, the monthly figure is information.
 
+If the file exists but **will not parse** — truncated, hand-edited — treat it exactly as absent: start
+a fresh file with today's entry, and name the filename and the parse error in the readout, so a
+corruption that keeps recurring is visible rather than quietly overwritten every day. Never guess at
+the entries you could not read.
+
 **6. The never list.** No `while` loop, no "until the list is done", no recursive retry around a paid
 call. One retry, only on a network error or a 5xx, and its cost counts too. Never call a paid endpoint
 from inside a loop whose length you have not bounded and checked against the cap first. Never call one
@@ -286,6 +331,11 @@ Base `https://api.dataforseo.com`, header `Authorization: Basic <key>` from sect
 rule in section 0.2 (`.seo-god/d4s-body.json` is fine — it holds keywords, not secrets). Use the
 project's own market: take `locationCode` and `languageCode` from `list_projects`
 (`references/setup.md` step 6; the default is `2840` / `"en"`).
+
+**Every call carries a 90-second timeout** — `-m 90`, or `-TimeoutSec 90` if you reach for
+`Invoke-RestMethod` — matching the ceiling our production client uses. A `/live` endpoint that has not
+answered in 90 seconds is not going to, and an unbounded curl inside a scheduled run is how a two-hour
+execution limit gets spent on one socket.
 
 **1. Search volume and CPC** — `POST /v3/keywords_data/google_ads/search_volume/live`
 
@@ -338,7 +388,8 @@ before you read any row.
 
 ### 1.7 Turning it off
 
-Remove the key line from `.seo-god/secrets.env`; if it was wired into the container, recreate it and
+Remove the key line from `.seo-god/secrets.env` with section 0.3's filter; if it was wired into the
+container, recreate it and
 confirm `checks.dataforseo` is back to `warn`. Set `power_ups.dataforseo` to `false` (section 4).
 Leave `.seo-god/spend.json` alone — it is the record of what was spent. Everything that used paid
 numbers returns to "not measured", which is the free path working as designed.
@@ -369,7 +420,12 @@ bookkeeping:
   user's domain in the model's answer. Three mentions in one answer is still one prompt.
 - **`competitors` is counted exactly as before** — `{host: number of prompts that host appeared in}`,
   keyed by the bare host lowercased with a leading `www.` stripped, the user's own domain excluded,
-  top 10 by count with ties broken alphabetically, sorted before capping.
+  top 10 by count with ties broken alphabetically, sorted before capping. In direct mode its evidence
+  is the same as `cited`'s: **third-party domains named in the model's answer**, as a bare host or
+  inside a URL, counted **once per prompt** however many times they appear in it. A bare brand name
+  with no domain counts for nobody — the same rule as `ai-visibility.md` section 3.3 — so a model that
+  says "use Acme" without a domain adds nothing to any key. Do not fold subdomains together; that
+  file's reasoning holds here too.
 - **The snapshot block keeps its four keys and no others** — `measured`, `prompts_ok`, `cited`,
   `competitors` (`ai-visibility.md` section 4.1). **Do not add a `mode` key.** The mode lives in the
   readout, for the same reason the branded/unbranded split does: the snapshot has no room for it, so
@@ -380,11 +436,11 @@ bookkeeping:
 
 ### 2.2 What each mode measures — the words that stay true
 
-| Mode | Say this | Never say this |
+| Mode (label in section 2.5) | Say this | Never say this |
 | --- | --- | --- |
-| Free (`WebSearch`) | "appeared in search results for 6 of 10 prompts (results-page proxy)" | "ChatGPT cites you for 6 of 10" |
-| Direct, no browsing | "named in the model's own answer for 6 of 10 prompts — what the model already believes, not a live citation" | "cited by ChatGPT", "share of voice in AI answers" |
-| Direct, browsing enabled | "named in the model's answer for 6 of 10 prompts, with the model's own search enabled" | "6 of 10 AI citations" |
+| Free `WebSearch` proxy — *no label* | "appeared in search results for 6 of 10 prompts (results-page proxy)" | "ChatGPT cites you for 6 of 10" |
+| Direct, no browsing — `[mode: direct-model]` | "named in the model's own answer for 6 of 10 prompts — what the model already believes, not a live citation" | "cited by ChatGPT", "share of voice in AI answers" |
+| Direct, browsing enabled — `[mode: direct-model+browsing]` | "named in the model's answer for 6 of 10 prompts, with the model's own search enabled" | "6 of 10 AI citations" |
 
 The domain match is mechanical, and one line of it differs from the proxy on purpose: **in a model's
 answer, naming the domain IS the appearance**, so `example.com` in the answer text counts, and so does
@@ -464,6 +520,18 @@ Answer slots taken by: competitor-one.com (7 prompts), a-directory.com (4)
 Snapshot: dist/seo/snapshots/2026-08-01.json (ai_visibility block updated)
 ```
 
+**The modes and their label literals are pinned — these three, and nothing else:**
+
+| Mode | Label on the `Score:` and `Split:` lines |
+| --- | --- |
+| free `WebSearch` proxy (`ai-visibility.md` section 3) | **none** — the proxy writes no label, and absence is its marker; every readout written before this power-up existed has none |
+| direct probing, browsing and tools off | `[mode: direct-model]` |
+| direct probing, the provider's own search enabled | `[mode: direct-model+browsing]` |
+
+Never invent a fourth, never write `[mode: search-proxy]`, never abbreviate or re-space one. The
+trend's same-mode test is **exact equality of that bracketed literal**, with both-absent counting as
+equal; anything else — one present and one absent, or two different literals — is a different mode.
+
 - The label is a **suffix**: `Score:` and `Split:` still begin the line and still carry the same
   numbers in the same order, so that file's section 5 `Split:`-line rule keeps working unchanged.
 - `Models:` is a **mandated** line under this power-up, and that file's section 5 tiebreak governs
@@ -493,15 +561,25 @@ Snapshot: dist/seo/snapshots/2026-08-01.json (ai_visibility block updated)
 
 ### 2.7 Turning it off
 
-Remove the key lines from `.seo-god/secrets.env` and set `power_ups.llm_keys` to `false`. The next run
-measures the proxy again and labels it. Locked prompts, snapshots and readouts stay exactly as they
-are — nothing is rewritten, and the mode labels are what keep the history readable.
+Remove the key lines from `.seo-god/secrets.env` (section 0.3's filter, once per name) and set
+`power_ups.llm_keys` to `false`. The next run measures the proxy again and writes no label, which is
+how a proxy day is recognised. Locked prompts, snapshots and readouts stay exactly as they are —
+nothing is rewritten, and the mode labels are what keep the history readable.
 
 ## 3. Telegram digest — the daily run on the user's phone
 
 Outbound only: the runner sends one plain-text message at the end of a daily run. This skill never
 reads commands from Telegram, because receiving would mean polling, and polling is the one thing
 section 3.2's warning forbids sharing.
+
+**The digest only fires on runs that COMPLETE, and that is the whole of what it promises.** The block
+sits on the runner's success path, past every failure exit — a `claude` that exits non-zero, a missing
+CLI, a hard kill, a machine that was off — so none of those sends anything. Say it in those words when
+you offer it: **no message means the run did not finish**, and SKILL.md's 48h missed-run warning
+(`references/schedule.md` section 3) remains the only failure signal. Do not move the block into a
+trap or a `finally` to "fix" this: those live in the runner this skill ships, and section 3.3 edits
+the user's copy only. The one piece of bad news the digest does carry is a run that finished
+**degraded** — the marker it quotes says so itself, e.g. `completed (openseo unreachable)`.
 
 **Prerequisite: the OS-native schedule from `references/schedule.md` section 2.** The digest is
 appended to the project's copy of the runner, so it needs a runner to exist. On the cloud-routine
@@ -526,12 +604,17 @@ The user must message the bot first; a bot cannot open a conversation. Ask them 
 (`t.me/<the bot's username>`) and send anything — "hi" is fine. Then, once:
 
 ```
-TG_TOKEN="$(sg_secret TELEGRAM_BOT_TOKEN)"
-curl -s "https://api.telegram.org/bot$TG_TOKEN/getUpdates"
+# macOS, Linux, Git Bash — the helper is section 0.3's, defined here because a shell does not survive between calls
+sg_secret() { sed -n "s/^$1=//p" .seo-god/secrets.env 2>/dev/null | tail -n1; }
+curl -s -m 20 "https://api.telegram.org/bot$(sg_secret TELEGRAM_BOT_TOKEN)/getUpdates"
 ```
 
-On Windows PowerShell that is `curl.exe -s "https://api.telegram.org/bot$(Get-SgSecret TELEGRAM_BOT_TOKEN)/getUpdates"`, one line — a GET with no body, so section 0.2's `@file`
-rule has nothing to apply to.
+```
+# Windows PowerShell — define Get-SgSecret from section 0.3 in the SAME command, then this one line
+curl.exe -s -m 20 "https://api.telegram.org/bot$(Get-SgSecret TELEGRAM_BOT_TOKEN)/getUpdates"
+```
+
+A GET with no body, so section 0.2's `@file` rule has nothing to apply to.
 
 Read `result[<the last entry>].message.chat.id` and, before storing it, check
 `message.chat.type` is `"private"` and the `username` or `first_name` is the user's. A bot username is
@@ -541,6 +624,11 @@ secret, but it lives with the token so the runner reads both from one file.
 
 Empty `result` → they have not sent the message yet, or something else already consumed the queue. Ask
 them to send another and make **one** more call. Still empty → stop. Do not poll in a loop.
+
+A reply of `{"ok":false,"error_code":404,…}` → the token read back **empty**, so the URL was
+`…/bot/getUpdates` with nothing between `bot` and the slash. That is a `secrets.env` problem, not a
+network one: check the name on the line and that the value is not blank. `401 Unauthorized` is the
+other shape — a token that is present and wrong, or one revoked in BotFather.
 
 > **WARNING —**
 > **if any other tool polls this bot's getUpdates, stop using getUpdates here — one poller only.**
@@ -565,19 +653,20 @@ inlined: that copy is an ordinary repo file and committing it is expected.
 
 # --- seo-god telegram digest (references/power-ups.md section 3.3) — safe to delete ---
 # Reads TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID from .seo-god/secrets.env at run time and
-# sends nothing when either is absent. Every command ends in a guard on purpose: this
-# script runs under `set -e` with an ERR trap that rewrites the run marker, so an
-# unguarded failed send would record a successful run as ok:false.
+# sends nothing when either is absent. EVERY assignment, command substitution and command
+# below is guarded on purpose: this script runs under `set -e` with an ERR trap that
+# rewrites the run marker, so one unguarded failure here would record a run that actually
+# SUCCEEDED as ok:false.
 sg_secret() { sed -n "s/^$1=//p" .seo-god/secrets.env 2>/dev/null | tail -n1; }
 TG_TOKEN="$(sg_secret TELEGRAM_BOT_TOKEN)" || TG_TOKEN=""
 TG_CHAT="$(sg_secret TELEGRAM_CHAT_ID)" || TG_CHAT=""
 if [ -n "$TG_TOKEN" ] && [ -n "$TG_CHAT" ] && command -v curl >/dev/null 2>&1; then
-  TG_DAY="$(date +%Y-%m-%d)"
+  TG_DAY="$(date +%Y-%m-%d)" || TG_DAY="unknown date"
   TG_BODY="$(cat "$MARKER" 2>/dev/null || echo 'no run marker')"
   for TG_DIR in dist/seo/readouts seo/readouts; do
     if [ -f "$TG_DIR/$TG_DAY.md" ]; then
       TG_BODY="$TG_BODY
-$(head -c 3000 "$TG_DIR/$TG_DAY.md")"
+$(head -c 3000 "$TG_DIR/$TG_DAY.md" || true)"
       break
     fi
   done
@@ -610,7 +699,7 @@ the `finally` block is unreachable and a digest appended there would never run o
       }
     }
     if ($tg['TELEGRAM_BOT_TOKEN'] -and $tg['TELEGRAM_CHAT_ID']) {
-      $tgDay = [DateTime]::Now.ToString('yyyy-MM-dd')
+      $tgDay = [DateTime]::Now.ToString('yyyy-MM-dd', [System.Globalization.CultureInfo]::InvariantCulture)
       $tgBody = 'no run marker'
       if (Test-Path -LiteralPath $marker -PathType Leaf) {
         $tgBody = (Get-Content -LiteralPath $marker -Raw)
@@ -632,11 +721,18 @@ the `finally` block is unreachable and a digest appended there would never run o
   # --- end seo-god telegram digest ---
 ```
 
-Five details in those blocks that are not style:
+Seven details in those blocks that are not style:
 
+- **Every assignment and substitution in the sh block is guarded, and that is load-bearing.** Walk it:
+  the two `sg_secret` reads end in `|| TG_…=""`; `date` ends in `|| TG_DAY="unknown date"`; the `cat`
+  guards itself with an inner `|| echo`; the `head` inside the readout substitution ends in
+  `|| true`; the `curl` ends in `|| true`. Under `set -e` plus the runner's ERR trap, **any one of
+  those failing unguarded rewrites a successful run's marker to `ok:false`** — an unreadable readout
+  file is enough to do it. If you add a line here, guard it.
 - **`$MARKER` / `$marker` and `$root` are the runner's own variables.** The block only works inside
   that script, at that position, which is the point: the digest reports the marker the runner just
-  wrote.
+  wrote. It also means the block cannot be lifted elsewhere unchanged — under `set -u` an unset
+  `MARKER` would itself trip the trap.
 - **The digest goes after the marker, never before.** The message's whole value is saying which
   outcome was recorded.
 - **`Invoke-RestMethod` rather than `curl.exe` on Windows** — deliberately, and consistent with the
@@ -644,8 +740,13 @@ Five details in those blocks that are not style:
   section 0.2 has nothing to apply to.
 - **No `parse_mode`.** The readout is Markdown and Telegram rejects unbalanced markup with a 400. Plain
   text always sends.
-- **The 3000-character truncation** keeps the message under Telegram's 4096-character limit with room
-  for the marker line.
+- **The truncation is 3000 BYTES in sh (`head -c`) and 3000 CHARACTERS in PowerShell
+  (`Substring`)** — each shell's natural unit, left different on purpose rather than papered over.
+  Both stay inside Telegram's 4096-character limit with room for the marker line, and the byte cut can
+  split a multibyte character at the boundary, which is harmless in a plain-text digest.
+- **`InvariantCulture` on the ps1 date** — the same bug class the runner's own `Write-Marker` comment
+  names: under a culture whose calendar is not Gregorian, `yyyy-MM-dd` renders a different year, and
+  the readout filename would then never match.
 
 ### 3.4 Test it, and know what a dry run does not test
 
@@ -655,7 +756,7 @@ Test the send on its own instead — same read-from-file pattern, no values inli
 ```
 # macOS, Linux, Git Bash — from the project root; the helper is section 0.3's
 sg_secret() { sed -n "s/^$1=//p" .seo-god/secrets.env 2>/dev/null | tail -n1; }
-curl -fsS -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$(sg_secret TELEGRAM_BOT_TOKEN)/sendMessage" --data-urlencode "chat_id=$(sg_secret TELEGRAM_CHAT_ID)" --data-urlencode "text=seo-god test" && echo sent
+curl -fsS -m 20 -X POST "https://api.telegram.org/bot$(sg_secret TELEGRAM_BOT_TOKEN)/sendMessage" --data-urlencode "chat_id=$(sg_secret TELEGRAM_CHAT_ID)" --data-urlencode "text=seo-god test"
 ```
 
 ```
@@ -663,9 +764,11 @@ curl -fsS -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$(sg_secret TE
 Invoke-RestMethod -Method Post -TimeoutSec 20 -Uri ('https://api.telegram.org/bot' + (Get-SgSecret TELEGRAM_BOT_TOKEN) + '/sendMessage') -Body @{ chat_id = (Get-SgSecret TELEGRAM_CHAT_ID); text = 'seo-god test' }
 ```
 
-`ok: true` in the reply plus the user confirming the message arrived is the test. `chat not found`
-means the chat id is wrong or they blocked the bot; `401 Unauthorized` means the token is wrong or
-revoked. The first real digest is tomorrow's run.
+The reply prints — there is no `-o /dev/null` here on purpose, because `"ok":true` in it is half the
+test and the user confirming the message arrived is the other half. Read the reply; do not infer it
+from a zero exit. `chat not found` means the chat id is wrong or they blocked the bot;
+`401 Unauthorized` means the token is wrong or revoked; `error_code 404` means the token read back
+empty (section 3.2). The first real digest is tomorrow's run.
 
 ### 3.5 Re-installing the schedule deletes this block — check for it afterwards
 
@@ -688,7 +791,7 @@ No match, `power_ups.telegram` still `true`, and no digest arriving are the same
 ### 3.6 Turning it off
 
 Delete the block between its two marker comments (or let a schedule re-install remove it), remove
-`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from `.seo-god/secrets.env`, and set
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` from `.seo-god/secrets.env` (section 0.3's filter), and set
 `power_ups.telegram` to `false`. Optionally `/deletebot` in BotFather. The runner is valid and
 complete either way — that is what the absent-variable guard is for.
 
@@ -729,7 +832,8 @@ Tell the user, briefly:
 - **For LLM keys**: the models and mode recorded today, that the numbers from here on are labelled
   `[mode: direct-model]` and are not comparable to the proxy days as a trend, and that a provider-side
   spend limit is worth the minute it takes.
-- **For Telegram**: that the digest starts with the next scheduled run, and that re-installing the
-  schedule removes the block (section 3.5).
+- **For Telegram**: that the digest starts with the next scheduled run, that **no message means the
+  run did not finish** — the digest never reports a failure, SKILL.md's 48h warning does — and that
+  re-installing the schedule removes the block (section 3.5).
 - That every one of them is reversible in a minute, and that the free path keeps working if they turn
   it off.

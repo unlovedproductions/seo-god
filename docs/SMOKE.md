@@ -31,11 +31,22 @@ skill was edited in response; every item lands in the v1.1 backlog at the end.
 `index.html` with no `<title>`, and `about.html` carrying one broken internal link to
 `/missing.html`. No paid keys, no Search Console, no power-ups at any point.
 
-**Authorized deviations from the test plan** (operator safety, not skill defects): the fixture
-container ran under compose project `seo-god-smoke` rather than the file's `seo-god`, on host port
-3005, to keep it provably separate from an unrelated production OpenSEO already running on this
-machine; headless runs were capped at `--max-turns 60` rather than the shipped runner's 80 (not
-binding — the longest run used 43).
+**Authorized deviations from the test plan** (operator safety and local tooling, not skill defects):
+
+- The fixture container ran under compose project `seo-god-smoke` rather than the file's `seo-god`,
+  on host port 3005, to keep it provably separate from an unrelated production OpenSEO already
+  running on this machine.
+- Headless runs were capped at `--max-turns 60` rather than the shipped runner's 80 (not binding —
+  the longest run used 43).
+- The fixture was served with `python -m http.server 8080` instead of `npx serve -l 8080`. `serve`
+  defaults to `cleanUrls: true`, which 301-redirects `/about.html` → `/about`; that would have
+  layered redirect noise over the seeded broken-link defect and changed what the crawler saw.
+  `http.server` serves paths literally, so the two seeded defects stay the only seeded findings.
+- **The daily runs invoked `claude -p` directly, not through `scripts/daily-run.ps1`.** The wrapper
+  was deliberately bypassed so that stage 3 tests the *skill flow* rather than the wrapper. This
+  matters for one finding: `.seo-god/last-run.json` is the wrapper's file to write
+  (`act.md` §7), and the wrapper never ran — so the marker writes recorded in F3 came from the skill
+  flow itself, not from `daily-run.ps1`.
 
 ## Stage results
 
@@ -47,6 +58,76 @@ binding — the longest run used 43).
 | 3. Daily loop, real `claude -p "/seo-god daily"` | **FAIL** — zero-question property held, the contract did not (F1, F2, F3) |
 | 4. Missed-run warning, real `claude -p "/seo-god"` | PASS, verbatim |
 | 5. Teardown | PASS |
+
+## Crawl ledger
+
+Three crawls ran, and the findings below cite different ones. Reconciled here so no number is
+orphaned:
+
+| | `auditId` | Result | Cited by |
+| --- | --- | --- | --- |
+| **A** | `3fceb5ef-8ced-482a-be7a-c8a6312be87a` | `status: "completed"` in 0.4 s, `pagesCrawled: 1`, `lighthouseTotal: 0`; the one page was `statusCode: 0, fetchClass: "error"` — the crawler runtime had negative-cached DNS for a hostname created seconds earlier | F8 |
+| **B** | `f64c69a6-a892-4930-9712-887bc16c320a` | the real audit — `pagesCrawled: 7`, `pagesTotal: 7`, `lighthouseTotal: 12, lighthouseCompleted: 0, lighthouseFailed: 12`; **10 issue rows across 6 types**, including both seeded defects | F7, and the seeded-defect result |
+| **C** | `1c7b81b9-7c37-4c6a-a67c-88326116fdfb` | post-fix re-crawl — all 10 of B's rows cleared, one new `info` row (`canonicalized-page`, the expected consequence of the canonical tag added to consolidate B's duplicates) | F9, F10 |
+
+Two clarifications on B's counts, since they look inconsistent at a glance. Seven pages from a
+five-page fixture is correct: `/`, `/index.html`, `/about.html`, `/menu.html`, `/locations.html`,
+`/contact.html` and the deliberately-absent `/missing.html`. And 12 Lighthouse runs over 7 pages is
+what the API reported; the tool describes the pass as "up to 10 representative pages" and the
+multiplier is not documented, so the figure is recorded as observed and not explained.
+
+## Stage 4 evidence — the missed-run warning
+
+Evidence source: **the original stage-4 run**, not a re-run. Its artifacts were all still on disk
+when this section was written — the planted state file, the planted marker, and the captured
+`--output-format json` result — so everything below is quoted rather than reconstructed.
+
+Planted state, in the fixture's `seo-god.json`:
+
+```json
+"phases": { "setup": "done", "audit": "done", "measure": "pending", "ai_visibility": "pending", "schedule": "pending" },
+"schedule": { "mode": "os", "time_local": "05:00", "marker": ".seo-god/last-run.json" },
+```
+
+Planted marker, at the default `.seo-god/last-run.json`, with `ts` backdated three days (the run
+fired at 2026-08-02T02:48Z, so the marker was ~72 h old — well past `SKILL.md` §2's 48 h window)
+while deliberately leaving `ok: true`, so that the age branch is what fires and not the `ok: false`
+branch:
+
+```json
+{"ts":"2026-07-30T02:45:00Z","ok":true,"notes":"Degraded run 2 of 2026-08-01 (act.md unreadable, network/OpenSEO unapproved, no GSC). Regression re-check of all 5 pages + robots + sitemap: clean, run-1 fixes verified intact. No edits made. Readout: dist/seo/daily-2026-08-01-run2.md"}
+```
+
+The command, from the fixture directory:
+
+```
+claude -p "/seo-god" --permission-mode acceptEdits --max-turns 15 --output-format json
+```
+
+Result: exit 0, `is_error: false`, 8 turns. The first two lines of the output, verbatim:
+
+```
+A scheduled run appears to have been missed (last run: 2026-07-30T02:45:00Z).
+
+The marker at `.seo-god/last-run.json` reports `ok: true`, but it's ~72 hours old — past the
+48-hour freshness window.
+```
+
+`SKILL.md` §2 specifies that string as a template:
+
+> Marker missing, unparseable, or its `ts` is more than 48h old → your FIRST output is the warning:
+> `A scheduled run appears to have been missed (last run: <ts, or "never">).`
+
+The first line matches the template exactly, with the planted `ts` substituted. The run then did the
+other three things §2 asks for: it continued rather than stopping ("The warning prefixes the turn;
+it never ends it"), it rendered the §6 phase menu in the documented layout, and it carried the two
+recovery options — run the daily loop now, re-check the schedule — into that menu as the recommended
+actions instead of asking a blocking question. It also spotted, unprompted, that `schedule.mode` was
+`"os"` while `phases.schedule` was still `"pending"`, which is an inconsistency this test created.
+
+Not covered by this stage: the `"ok": false` branch, which §2 says should produce the same warning
+"plus quote its `notes` verbatim". The marker was planted with `ok: true` on purpose to isolate the
+age trigger, so that branch remains untested.
 
 ## What worked exactly as written
 
@@ -75,7 +156,8 @@ were wrong:
 - **Both seeded defects were found**, as `critical`, on the first good crawl:
   `missing-title` on `/` and `/index.html`; `broken-internal-link` on `/about.html` with
   `details: {"targetUrl":".../missing.html","targetStatus":404}`.
-- **`SKILL.md` §2's missed-run check** — stage 4, verbatim, first line, before anything else.
+- **`SKILL.md` §2's missed-run check** — stage 4, verbatim, first line, before anything else; full
+  evidence chain in the section above.
 - **`references/act.md` §7's "Write **no** phase state"** — `seo-god.json` was byte-identical after
   both unattended runs.
 - **The data-honesty rules survived everything.** Both degraded unattended runs named every missing
@@ -210,26 +292,47 @@ For the local case it does not, and it fails into a loop: the project domain can
 `site_url` host, so §1's "No match means setup did not finish — go back to `references/setup.md`"
 sends the agent back to a setup step that will refuse the same domain again.
 
-### F5 — HIGH. The port-conflict branch is keyed on a failure that exits 0, and its failure mode is talking to a stranger's container
+### F5 — HIGH. The port-conflict branch detects the first failure correctly, but a retry turns it into a success that talks to a stranger's container
 
 `references/setup.md` §4:
 
 > If `up` fails with `Bind for 127.0.0.1:3001 failed: port is already allocated`, another process
 > owns that port: return to step 3, choose a different host port, rewrite the file, retry.
 
-The error string is exactly right — Docker 29.6.2 printed it character for character. Everything
-around it is not:
+**The trigger is right.** Docker 29.6.2 printed that string character for character, and the first
+conflicted `up -d` **exits 1**. Both signals an agent could key on — the message and the exit code —
+are correct on the first attempt.
 
-1. `docker compose up -d` **exited 0** while printing that error. An agent that checks exit status —
-   the natural habit, and the one this skill's honesty rules encourage — concludes the boot
-   succeeded.
-2. A second identical `up -d` printed `Container seo-god-smoke-open-seo-1 Started`, exited 0, and
-   left the container **running with an empty port binding**: `docker inspect` reported
-   `{"3001/tcp":[]}`. Running, healthy, and unreachable from the host.
-3. §5 then polls `http://127.0.0.1:3001/api/health` — and on this machine that returned **200 from a
-   completely different OpenSEO install**, verified while the skill's own container had no host
-   binding at all. §5's documented ready-response shape matches that stranger's response, so the
-   check passes and §6 proceeds to register the user's site inside someone else's instance.
+> **Correction to an earlier draft of this document.** The first run of this test measured the exit
+> code through a pipe (`docker compose … up -d 2>&1 | tail -20; echo $?`), which reports *`tail`'s*
+> exit code, not Compose's, and recorded "exited 0". That was a measurement error, not a Compose
+> behaviour. The numbers below come from a clean re-measurement in a separate throwaway compose
+> project using a neutral `alpine` image, with output redirected to a file rather than piped.
+
+The danger is the **retry**, and it is real:
+
+```
+FIRST_UP_EXIT=1
+  Error response from daemon: failed to set up container networking: driver failed programming
+  external connectivity on endpoint … Bind for 127.0.0.1:3001 failed: port is already allocated
+
+SECOND_UP_EXIT=0
+  Container seo-god-smoke-exitcheck-probe-1 Starting
+  Container seo-god-smoke-exitcheck-probe-1 Started
+  {"3001/tcp":[]} state=running
+```
+
+A second identical `up -d` — before rewriting the port — reports `Started`, **exits 0**, and leaves
+the container **running with an empty port binding**. Running, and unreachable from the host. §4
+does say to rewrite the file before retrying, so this needs an agent that retries first; retrying a
+transient-looking Docker failure before editing anything is an ordinary reflex, and nothing in §4
+warns against it or says the retry must come after the rewrite.
+
+From there it gets worse quietly. §5 polls `http://127.0.0.1:3001/api/health` and on this machine
+that returned **200 from a completely different OpenSEO install** — verified live, while the skill's
+own container had no host binding at all. §5's documented ready-response shape matches that
+stranger's response exactly, so the readiness check passes and §6 proceeds to register the user's
+site inside someone else's instance.
 
 Nothing in `setup.md` ever verifies that the process answering the chosen port is the container it
 just started. The one available discriminator was visible but unnamed: the foreign install answered
@@ -251,8 +354,8 @@ application's HTML. The seed value contradicts the rule that exists to prevent i
 
 ### F7 — MEDIUM. Nothing tells you to check whether Lighthouse ran
 
-`get_audit_status` returned `lighthouseTotal: 12, lighthouseCompleted: 0, lighthouseFailed: 12`. All
-twelve Lighthouse runs failed, so triage class 5 had zero data.
+On crawl B, `get_audit_status` returned `lighthouseTotal: 12, lighthouseCompleted: 0,
+lighthouseFailed: 12`. All twelve Lighthouse runs failed, so triage class 5 had zero data.
 
 `audit.md` §4 lists "the Lighthouse counters" as fields on the status object and says nothing more.
 §6 class 5 says "plus the Lighthouse performance findings from the crawl". §8's summary shape has no
@@ -265,7 +368,8 @@ performance issues found" and "performance was never measured" are indistinguish
 
 ### F8 — MEDIUM. A crawl that fetched nothing still reports `status: "completed"`
 
-The first good-URL crawl returned an `auditId`, and `get_audit_status` reported:
+Crawl A — the first against a reachable public URL — returned an `auditId`, and `get_audit_status`
+reported:
 
 ```
 "status":"completed","pagesCrawled":1,"pagesTotal":1,"lighthouseTotal":0
@@ -291,10 +395,10 @@ warm produced 7 pages and the full issue set.
 
 That is the right call and it was followed. But the projects that produce `"none"` are hand-written
 static sites — precisely the ones where OpenSEO can re-crawl in about ten seconds and prove the fix.
-Re-crawling by hand after the fixes cleared all ten issues, leaving one expected new `info` row
-(`canonicalized-page`, a direct result of the canonical tag added to consolidate the duplicates).
-Neither `audit.md` §2 nor `act.md`'s degrade row (`build_cmd` is `"none"` → edits, never verified)
-mentions the re-crawl as a substitute gate.
+Re-crawling by hand after the fixes — crawl C, about ten seconds — cleared all ten of crawl B's
+rows, leaving one expected new `info` row (`canonicalized-page`, a direct result of the canonical
+tag added to consolidate B's duplicates). Neither `audit.md` §2 nor `act.md`'s degrade row
+(`build_cmd` is `"none"` → edits, never verified) mentions the re-crawl as a substitute gate.
 
 ### F10 — LOW. Fixing a broken link makes the 404 disappear from the report without being fixed
 
@@ -338,8 +442,9 @@ Ordered by what would break a real user first.
    tunnel workaround for local sites — or refuse local URLs at the question instead of three steps
    later. Fix `audit.md` §1's resolution rule so it cannot loop back into a setup step that will
    refuse the same domain. (F4)
-4. **Do not trust `docker compose up -d`'s exit code**, and add an ownership check after the first
-   200: confirm the responder is the container this project just started (compare
+4. **Say in §4 that the retry comes only *after* the rewrite**, since a bare retry exits 0 and
+   produces a running container with no host binding; and add an ownership check after the first
+   200 — confirm the responder is the container this project just started (compare
    `docker compose -p … ps` port bindings against the polled port) before registering anything.
    (F5)
 5. **Parameterise the port** through §5, §6 and §8 instead of relocating in prose, and change
@@ -363,16 +468,22 @@ cloudflared tunnel were both stopped (`localhost:8080` → connection refused; t
 An unrelated production OpenSEO was running on this machine on `127.0.0.1:3001` for the whole test.
 It was never stopped, restarted or modified:
 
-| | before | after |
-| --- | --- | --- |
-| checked at | 2026-08-02T02:09:48Z | 2026-08-02T02:49:59Z |
-| `GET /api/health` | 200 | 200 |
-| container id | `b67816ab655c…` | `b67816ab655c…` |
-| `State.StartedAt` | 2026-08-01T14:07:38.796409818Z | 2026-08-01T14:07:38.796409818Z |
-| `RestartCount` | 0 | 0 |
-| data volume | `open-seo_open_seo_data` | `open-seo_open_seo_data` |
+| | before | after | after re-measurement |
+| --- | --- | --- | --- |
+| checked at | 2026-08-02T02:09:48Z | 2026-08-02T02:49:59Z | 2026-08-02T03:06:04Z |
+| `GET /api/health` | 200 | 200 | 200 |
+| container id | `b67816ab655c…` | `b67816ab655c…` | — |
+| `State.StartedAt` | 2026-08-01T14:07:38.796409818Z | 2026-08-01T14:07:38.796409818Z | 2026-08-01T14:07:38.796409818Z |
+| `RestartCount` | 0 | 0 | 0 |
+| data volume | `open-seo_open_seo_data` | `open-seo_open_seo_data` | — |
 
 Uptime unbroken, restart count unchanged, volume intact.
+
+The third column covers a follow-up: the F5 exit-code re-measurement needed a second throwaway
+compose project (`seo-god-smoke-exitcheck`, a neutral `alpine` container whose only job was to fail
+to bind 3001). It never bound the port, was removed with `down -v`, and left zero containers,
+volumes and networks behind. Production was re-checked afterwards — same `StartedAt`, restart count
+still 0, health still 200.
 
 The skill repository was not edited during the test: `git status --short` stayed empty and `HEAD`
 stayed at `b61c42e` until this file was added. Three headless transcripts were audited afterwards

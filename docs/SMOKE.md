@@ -142,8 +142,8 @@ were wrong:
   and it appeared at log line 8, exactly as quoted.
 - **The port-relocation procedure.** Rewriting only the host side of the port mapping and re-running
   `up -d` recreated the container cleanly (`Recreate` → `Recreated` → `Started`, bindings
-  `{"3001/tcp":[{"HostIp":"127.0.0.1","HostPort":"3005"}]}`). The instruction is right; only its
-  trigger is unreliable (F5).
+  `{"3001/tcp":[{"HostIp":"127.0.0.1","HostPort":"3005"}]}`). The instruction is right, and so is
+  its trigger; the exposure is the retry and the missing ownership check (F5).
 - **`references/audit.md` §3's tool table.** All five named tools exist. Every documented argument,
   default and cap matched the live `inputSchema`: issues `limit` default 200 / max 1000, pages
   `limit` default 100 / max 1000, `maxPages` default 50 with range 10-10000, `runLighthouse` default
@@ -292,24 +292,37 @@ For the local case it does not, and it fails into a loop: the project domain can
 `site_url` host, so §1's "No match means setup did not finish — go back to `references/setup.md`"
 sends the agent back to a setup step that will refuse the same domain again.
 
-### F5 — HIGH. The port-conflict branch detects the first failure correctly, but a retry turns it into a success that talks to a stranger's container
+### F5 — HIGH. Nothing checks that the thing answering the port is the container the skill started
 
-`references/setup.md` §4:
+**The severity lives in an unconditional gap, reachable by following the file exactly as written.**
+Setup never verifies ownership of the port it polls. Relocate to 3005 because §4 told you to, then
+copy §5's readiness poll and §6's registration calls as they are printed — all of which still say
+`3001` (F6) — and on this machine you get **200 from a completely different OpenSEO install**,
+verified live. §5's documented ready-response shape matches that stranger's response exactly, so the
+readiness check passes and §6 registers the user's site inside someone else's instance. No deviation
+from the file is required to reach that; the two findings compound, and this is the leg that carries
+HIGH.
+
+The one available discriminator was visible but unnamed: the foreign install answered
+`"dataforseo":{"status":"ok","detail":"Set"}`, whereas §5 documents the free path as `"warn"` /
+"Not set" — the file presents that as a benign expectation, never as an identity check.
+
+**The trigger itself is right**, and that is worth stating plainly. `references/setup.md` §4:
 
 > If `up` fails with `Bind for 127.0.0.1:3001 failed: port is already allocated`, another process
 > owns that port: return to step 3, choose a different host port, rewrite the file, retry.
 
-**The trigger is right.** Docker 29.6.2 printed that string character for character, and the first
-conflicted `up -d` **exits 1**. Both signals an agent could key on — the message and the exit code —
-are correct on the first attempt.
+Docker 29.6.2 printed that string character for character, and the first conflicted `up -d`
+**exits 1**. Both signals an agent could key on — the message and the exit code — are correct on the
+first attempt.
 
 > **Correction to an earlier draft of this document.** The first run of this test measured the exit
 > code through a pipe (`docker compose … up -d 2>&1 | tail -20; echo $?`), which reports *`tail`'s*
 > exit code, not Compose's, and recorded "exited 0". That was a measurement error, not a Compose
-> behaviour. The numbers below come from a clean re-measurement in a separate throwaway compose
-> project using a neutral `alpine` image, with output redirected to a file rather than piped.
+> behaviour, and the claim is retracted.
 
-The danger is the **retry**, and it is real:
+**A secondary mechanism reaches the same place, but only off-script.** Re-measured cleanly in a
+separate throwaway compose project:
 
 ```
 FIRST_UP_EXIT=1
@@ -322,22 +335,20 @@ SECOND_UP_EXIT=0
   {"3001/tcp":[]} state=running
 ```
 
-A second identical `up -d` — before rewriting the port — reports `Started`, **exits 0**, and leaves
-the container **running with an empty port binding**. Running, and unreachable from the host. §4
-does say to rewrite the file before retrying, so this needs an agent that retries first; retrying a
-transient-looking Docker failure before editing anything is an ordinary reflex, and nothing in §4
-warns against it or says the retry must come after the rewrite.
+A second identical `up -d` — issued *before* rewriting the port — reports `Started`, **exits 0**,
+and leaves the container running with an empty port binding: running, and unreachable from the host.
+That then feeds the same 3001 poll described above. This one requires deviating from §4's
+rewrite-then-retry order, so it is a lesser leg than the ownership gap; it is recorded because
+retrying a transient-looking Docker failure before editing anything is an ordinary reflex and §4
+never says the retry must come after the rewrite.
 
-From there it gets worse quietly. §5 polls `http://127.0.0.1:3001/api/health` and on this machine
-that returned **200 from a completely different OpenSEO install** — verified live, while the skill's
-own container had no host binding at all. §5's documented ready-response shape matches that
-stranger's response exactly, so the readiness check passes and §6 proceeds to register the user's
-site inside someone else's instance.
-
-Nothing in `setup.md` ever verifies that the process answering the chosen port is the container it
-just started. The one available discriminator was visible but unnamed: the foreign install answered
-`"dataforseo":{"status":"ok","detail":"Set"}`, whereas §5 documents the free path as `"warn"` /
-"Not set" — the file presents that as a benign expectation, never as an identity check.
+One provenance note on that evidence: the two exit codes and the transcript above come from an
+`alpine` probe container in the throwaway project, **not** from the `open-seo` image — it was chosen
+precisely because the behaviour under test is Compose's and the daemon's, not the application's. The
+empty binding itself was independently observed on the real image during the live smoke —
+`docker inspect seo-god-smoke-open-seo-1` returned `{"3001/tcp":[]}` with `State=running` — so that
+half of the mechanism is confirmed on both. Only the exit codes are alpine-only, and only the exit
+code was ever mis-measured.
 
 ### F6 — MEDIUM. After relocating the port, every literal command in the file still says 3001
 
@@ -442,11 +453,11 @@ Ordered by what would break a real user first.
    tunnel workaround for local sites — or refuse local URLs at the question instead of three steps
    later. Fix `audit.md` §1's resolution rule so it cannot loop back into a setup step that will
    refuse the same domain. (F4)
-4. **Say in §4 that the retry comes only *after* the rewrite**, since a bare retry exits 0 and
-   produces a running container with no host binding; and add an ownership check after the first
-   200 — confirm the responder is the container this project just started (compare
-   `docker compose -p … ps` port bindings against the polled port) before registering anything.
-   (F5)
+4. **Add an ownership check after the first 200** — confirm the responder is the container this
+   project just started (compare `docker compose -p … ps` port bindings against the polled port)
+   before registering anything. This is the unconditional half of F5 and the reason it is HIGH.
+   Secondarily, say in §4 that the retry comes only *after* the rewrite, since a bare retry exits 0
+   and produces a running container with no host binding. (F5)
 5. **Parameterise the port** through §5, §6 and §8 instead of relocating in prose, and change
    `SKILL.md`'s default `openseo.url` seed off `localhost`. (F6)
 6. **Treat `lighthouseFailed > 0` and `fetchClass: "error"` as missing data**, with the same words

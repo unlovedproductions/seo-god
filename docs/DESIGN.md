@@ -47,7 +47,7 @@ seo-god/                      (public repo == the skill folder)
 
 1. **AUDIT** (free): boot OpenSEO via Docker (AUTH_MODE=local_noauth, embedded SQLite; its
    in-container cron never fires — host drives it, learned on FastSolve). Crawl the user's
-   sitemap, triage issues by impact, fix what lives in their repo (titles, metas, broken
+   site, triage issues by impact, fix what lives in their repo (titles, metas, broken
    links, thin content) with verified edits and the user's own build/typecheck as the gate.
 2. **MEASURE** (free): walk the user through GSC OAuth connect (every gotcha documented);
    degrade gracefully to OpenSEO rank tracking + crawl deltas if they skip it. Daily

@@ -25,20 +25,20 @@ modes it guards against are the ones that survived production.
 
 ## What it does
 
-Five phases, one per invocation. Phase results land in `seo-god.json` in your project; the daily loop
-(`act`) is not a phase and writes no phase state — it leaves snapshots and readouts instead. Either
-way, the next run knows where you stopped.
+Five phases, one per invocation, numbered below in the order the skill's own menu prints them — and
+the order it resumes in. Phase results land in `seo-god.json` in your project, so the next run knows
+where you stopped. The unnumbered row is the daily loop (`act`): not a phase, no phase state — it
+leaves dated snapshots and readouts in your repo instead, and it is available any time once setup is
+done.
 
 | | Phase | What happens |
 | --- | --- | --- |
-| 1 | [**audit**](references/audit.md) | Crawls your site with the local OpenSEO container, triages every issue by impact, then fixes the ones that live in your repo — titles, metas, broken links, thin content — with your own build and typecheck as the gate. |
-| 2 | [**measure**](references/measure.md) | Walks you through connecting Google Search Console, writes a dated snapshot into your repo, and diffs it against the last one. The review order is fixed: regressions, then quick wins at positions 4-15, then new queries. |
-| 3 | [**act**](references/act.md) | The daily loop. Fix what regressed, improve two or three pages that already almost rank, add at most one new page the data actually asked for, leave a dated readout behind. |
+| 1 | [**setup**](references/setup.md) | Boots OpenSEO in Docker, registers your site, creates `seo-god.json` — the pass the first run always does before any of the rest. |
+| 2 | [**audit**](references/audit.md) | Crawls your site with the local OpenSEO container, triages every issue by impact, then fixes the ones that live in your repo — titles, metas, broken links, thin content — with your own build and typecheck as the gate. |
+| 3 | [**measure**](references/measure.md) | Walks you through connecting Google Search Console, writes a dated snapshot into your repo, and diffs it against the last one. The review order is fixed: regressions, then quick wins at positions 4-15, then new queries. |
 | 4 | [**ai_visibility**](references/ai-visibility.md) | Locks ten prompts for your niche on the first run and never edits them again, then measures how often your domain shows up for them. Read the note below before you quote that number anywhere. |
 | 5 | [**schedule**](references/schedule.md) | Installs the loop as a real OS job — Task Scheduler, launchd or cron — or as a cloud routine. The skill asks which; both ship with a 48-hour self-check that surfaces a run that went missing. |
-
-Before any of that, the first run does a [setup](references/setup.md) pass: boot OpenSEO in Docker,
-register your site, create `seo-god.json`.
+| — | [**act**](references/act.md) | *The daily loop — on demand.* Fix what regressed, improve two or three pages that already almost rank, add at most one new page the data actually asked for, leave a dated readout behind. |
 
 > [!IMPORTANT]
 > **What "AI visibility" measures, exactly.** On the free path it measures whether your domain

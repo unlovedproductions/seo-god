@@ -1,0 +1,160 @@
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%"
+       alt="SEO-GOD — a Claude Code skill. Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own phase menu: setup, audit and measure done; ai_visibility and schedule pending; act on demand.">
+</p>
+
+<p align="center">
+  <a href="https://claude.com/claude-code"><img alt="Works with Claude Code" src="https://img.shields.io/badge/works%20with-Claude%20Code-D97757?style=flat-square"></a>
+  <img alt="Platforms: Windows, macOS and Linux" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-30363D?style=flat-square">
+  <a href="#what-you-need"><img alt="Paid keys: none required" src="https://img.shields.io/badge/paid%20keys-none-3FB950?style=flat-square"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-30363D?style=flat-square"></a>
+</p>
+
+`seo-god` turns Claude Code into an SEO operator for a site you own. It crawls the site with a local
+[OpenSEO](https://github.com/every-app/open-seo) container, fixes what it finds in your repo, reads
+your real numbers out of Google Search Console, diffs today against yesterday, and then repeats that
+loop on a schedule you install once. It never scrapes Google, and the entire free path runs without a
+single paid API key.
+
+## Proof
+
+The five phases in this repo are a rewrite of a pipeline that runs daily on a production site.
+[The public AI-visibility report](https://fastsolve.app/reports/ai-visibility) on fastsolve.app is
+that pipeline's own output. The code here is new — the method, the review order, and the failure
+modes it guards against are the ones that survived production.
+
+## What it does
+
+Five phases. Claude runs exactly one per invocation, writes the result into `seo-god.json` in your
+project, and picks up from there next time you ask.
+
+| | Phase | What happens |
+| --- | --- | --- |
+| 1 | [**audit**](references/audit.md) | Crawls your sitemap with the local OpenSEO container, triages every issue by impact, then fixes the ones that live in your repo — titles, metas, broken links, thin content — with your own build and typecheck as the gate. |
+| 2 | [**measure**](references/measure.md) | Walks you through connecting Google Search Console, writes a dated snapshot into your repo, and diffs it against the last one. The review order is fixed: regressions, then quick wins at positions 4-15, then new queries. |
+| 3 | [**act**](references/act.md) | The daily loop. Fix what regressed, improve two or three pages that already almost rank, add at most one new page the data actually asked for, leave a dated readout behind. |
+| 4 | [**ai_visibility**](references/ai-visibility.md) | Locks ten prompts for your niche on the first run and never edits them again, then measures how often your domain shows up for them. Read the note below before you quote that number anywhere. |
+| 5 | [**schedule**](references/schedule.md) | Installs the loop as a real OS job — Task Scheduler, launchd or cron — or as a cloud routine. The skill asks which; both ship with a 48-hour self-check that surfaces a run that went missing. |
+
+Before any of that, the first run does a [setup](references/setup.md) pass: boot OpenSEO in Docker,
+register your site, create `seo-god.json`.
+
+> [!IMPORTANT]
+> **What "AI visibility" measures, exactly.** On the free path it measures whether your domain
+> appears in the *search results* for your locked prompts — a search-visibility proxy. That is not
+> proof that an assistant cited you. Being the answer AI engines cite is the goal, and the proxy is
+> worth tracking because an assistant that searches can only ground an answer in pages it can
+> retrieve: a domain absent from the results can never be quoted, and a domain present in them still
+> might not be. Asking models directly is an [optional power-up](references/power-ups.md), not the
+> free path — and the readout uses those words, never "citation rate".
+
+## The daily loop
+
+<p align="center">
+  <img src="./assets/readme/daily-loop.svg" width="100%"
+       alt="Your OS scheduler — Task Scheduler, launchd or cron — or a cloud routine runs claude -p /seo-god daily at 05:00 local. The run keeps a fixed order: inputs (snapshot plus diff), regressions first (fix what fell), quick wins (positions 4-15), content gap (one new page at most), readout (a dated file on disk). It repeats tomorrow, and if no run marker appears for 48 hours the next /seo-god session opens with a warning.">
+</p>
+
+The order never changes: **inputs → regressions → quick wins → content gap → readout.** A quick win
+is worth nothing on a site that broke yesterday, and a new page is worth nothing on a site with a
+broken one. Unattended runs ask zero questions; a run that cannot reach OpenSEO degrades, does what
+the available data supports, and names what was missing in the readout instead of guessing.
+
+## Install
+
+**macOS / Linux**
+
+```bash
+git clone https://github.com/<owner>/seo-god ~/.claude/skills/seo-god
+```
+
+**Windows** — the same destination, `%USERPROFILE%\.claude\skills\seo-god`:
+
+```powershell
+git clone https://github.com/<owner>/seo-god "$env:USERPROFILE\.claude\skills\seo-god"
+```
+
+Then open Claude Code in the repository of the site you want to work on, and type:
+
+```
+/seo-god
+```
+
+That is the whole install. The first run creates `seo-god.json` in that project — site URL, phase
+statuses, schedule mode — and every later run reads it and resumes where you stopped.
+`seo-god.json` is meant to be committed: it holds no keys, tokens or passwords. The `.seo-god/`
+directory created next to it is added to your `.gitignore` before anything is written into it and is
+never committed — that is where secrets, the run marker and local scratch live.
+
+## What you need
+
+- **A website you own.** Any stack. Repo access strongly preferred, because the fixes are edits in your repository, gated by your own build.
+- **Claude Code.**
+- **Docker** — Desktop on macOS and Windows, Engine plus Compose v2 on Linux. OpenSEO runs locally from a published image; nothing is built from source.
+- **No paid API keys.** The free path is complete, end to end.
+
+One honest limit: **rank-tracking numbers are the exception.** Tracked keyword positions, search
+volume, keyword difficulty and backlink data need the DataForSEO power-up below. Without it you
+measure from three free sources — your crawl, your own Search Console data, and the locked prompt
+set — and anything the skill could not measure is reported as *not measured*, never as zero.
+
+## Power-ups
+
+All three are optional. They are offered in context, never assumed, and the skill is complete
+without them. Details in [references/power-ups.md](references/power-ups.md).
+
+| Power-up | | What it adds |
+| --- | --- | --- |
+| **DataForSEO** | optional | Real search volume, keyword difficulty and backlink summaries. Budget-capped before the first call by design: a `$0.50` per-run cap, a `$2.00` balance floor that disables the paid plane outright, and a spend line in every readout. |
+| **LLM API keys** | optional | Upgrades AI-visibility measurement from a search-results proxy to direct model probing — the same locked prompts, asked to the models themselves. |
+| **Telegram digest** | optional | The daily run ends with one plain-text message on your phone. Outbound only, and it fires only on runs that complete: no message means the run did not finish. |
+
+## What it will never do
+
+Hard rules, not guidelines. Every phase file is subordinate to them, and a phase that appears to
+conflict with one is required to stop and say so.
+
+- **Secrets stay in a gitignored env file** — `.seo-god/secrets.env`, gitignored at creation, never printed, never committed.
+- **Missing data is reported as missing**, never zero-filled and never extrapolated. Partial coverage is labelled partial.
+- **No bought links, no fake reviews, no auto-posting** to social or forums, and no fabricated claims on pages it writes. Directory submissions stay owner-driven.
+- **Any paid API path is budget-capped before the first call** — per-run cap, balance floor, spend ledger. No code path spends money without a cap you set.
+- **No SERP scraping of Google**, anywhere in the skill, with or without a key.
+- **Scheduled runs ship with failure visibility.** If no run marker appears for 48 hours, your next `/seo-god` session opens with that warning before anything else.
+
+## Tested on
+
+Built and verified on **Windows**. The macOS and Linux paths — launchd, cron, the POSIX runner — are
+written against documented behaviour and stub-verified, but have not yet been exercised on a real
+host.
+
+**Help wanted:** run it on macOS or Linux and open an issue with what happened, working or broken.
+That is the single most useful contribution to this repo right now.
+
+## Uninstall
+
+Remove the schedule first if you installed one. The installer printed the command for your OS, and
+[references/schedule.md](references/schedule.md) carries all three: `Unregister-ScheduledTask` on
+Windows (§2.2), `launchctl bootout` **plus** deleting the plist on macOS (§2.3), and the
+`crontab -e` line on Linux (§2.4). Then delete the folder:
+
+```bash
+rm -rf ~/.claude/skills/seo-god
+```
+
+```powershell
+Remove-Item -Recurse -Force "$env:USERPROFILE\.claude\skills\seo-god"
+```
+
+`seo-god.json`, your snapshots and your readouts live in your own repository. Removing the skill
+leaves every one of them alone.
+
+## Under the hood
+
+[`SKILL.md`](SKILL.md) is a thin orchestrator: it detects state and routes to exactly one phase file
+in [`references/`](references/), loaded only when that phase runs. The full design — the decisions,
+what is deliberately out of scope, and the success criteria this was built against — is in
+[docs/DESIGN.md](docs/DESIGN.md).
+
+## License
+
+[MIT](LICENSE)

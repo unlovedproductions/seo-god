@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420"
+     role="img" aria-labelledby="loopTitle loopDesc">
+  <title id="loopTitle">The daily loop</title>
+  <desc id="loopDesc">Your OS scheduler (Task Scheduler, launchd or cron) — or a cloud routine — runs claude -p "/seo-god daily" at 05:00 local. The run works in a fixed order: inputs (snapshot plus diff), regressions first (fix what fell), quick wins (positions 4-15), content gap (one new page at most), readout (a dated file on disk). It repeats tomorrow at the same time, and if no run marker appears for 48 hours the next /seo-god session opens with a warning.</desc>
+
+  <rect x="0.75" y="0.75" width="1198.5" height="418.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
+
+  <g id="board-header">
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" letter-spacing="3" fill="#7EE787">THE DAILY LOOP</text>
+    <text x="1136" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" fill="#6E7B8A">references/act.md</text>
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif"
+          font-size="40" font-weight="700" fill="#E6EDF3">Regressions first. One new page, at most.</text>
+  </g>
+
+  <g id="trigger">
+    <rect x="64" y="140" width="1072" height="52" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="88" y="173" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"><tspan fill="#8A97A6">Task Scheduler / launchd / cron  ·  05:00 local  ·  </tspan><tspan fill="#C9D4E0">claude -p "/seo-god daily"</tspan></text>
+  </g>
+
+  <g id="stages" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif">
+    <!-- 01 inputs -->
+    <rect x="64" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">01</text>
+    <text x="82" y="283" font-size="22" font-weight="600" fill="#E6EDF3">inputs</text>
+    <text x="82" y="307" font-size="18" fill="#8A97A6">snapshot + diff</text>
+
+    <!-- 02 regressions, always first -->
+    <rect x="283" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#8A6D1F" stroke-width="1.5"/>
+    <text x="301" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">02</text>
+    <rect x="405" y="234" width="56" height="22" rx="6" fill="#3A2E12" stroke="#8A6D1F" stroke-width="1"/>
+    <text x="433" y="250" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#E3B341">first</text>
+    <text x="301" y="283" font-size="22" font-weight="600" fill="#E6EDF3">regressions</text>
+    <text x="301" y="307" font-size="18" fill="#E3B341">fix what fell</text>
+
+    <!-- 03 quick wins -->
+    <rect x="502" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="520" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">03</text>
+    <text x="520" y="283" font-size="22" font-weight="600" fill="#E6EDF3">quick wins</text>
+    <text x="520" y="307" font-size="18" fill="#8A97A6">positions 4-15</text>
+
+    <!-- 04 content gap -->
+    <rect x="721" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="739" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">04</text>
+    <text x="739" y="283" font-size="22" font-weight="600" fill="#E6EDF3">content gap</text>
+    <text x="739" y="307" font-size="18" fill="#8A97A6">one page, at most</text>
+
+    <!-- 05 readout -->
+    <rect x="940" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="958" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">05</text>
+    <text x="958" y="283" font-size="22" font-weight="600" fill="#E6EDF3">readout</text>
+    <text x="958" y="307" font-size="18" fill="#8A97A6">dated file on disk</text>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270" text-anchor="middle">
+      <text x="271" y="279">&gt;</text>
+      <text x="490" y="279">&gt;</text>
+      <text x="709" y="279">&gt;</text>
+      <text x="928" y="279">&gt;</text>
+    </g>
+  </g>
+
+  <g id="repeat">
+    <path d="M1136,318 L1136,342 Q1136,354 1124,354 L174,354 Q162,354 162,342 L162,330"
+          fill="none" stroke="#2F3A47" stroke-width="1.5" stroke-dasharray="5 5"/>
+    <path d="M155,332 L162,318 L169,332 Z" fill="#566270"/>
+    <rect x="508" y="340" width="184" height="28" rx="6" fill="#0B0F14"/>
+    <text x="600" y="359" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#8A97A6">tomorrow, 05:00</text>
+  </g>
+
+  <text x="600" y="398" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" fill="#6E7B8A">no marker for 48h → the next /seo-god session opens with the warning</text>
+</svg>

@@ -29,6 +29,12 @@ Read `seo-god.json` from the current working directory:
 Set `phases.measure` to `"in_progress"` and write the file to disk now, preserving every key you do
 not recognise. Doing it before the slow steps is what makes an interrupted measure resumable.
 
+**Loop-breaker — check the host first.** If `site_url`'s host fails `references/setup.md` section 2's
+public-reachability rule — `localhost`, an IP literal, a `.local` / `.localhost` / `.internal` /
+`.test` / `.example`-class suffix, or any host with no public suffix — say so and stop here, with
+setup's two options: a public tunnel or a deployed domain. Do **not** route back to
+`references/setup.md` for this; it refuses the same host, and the round trip never terminates.
+
 Resolve the OpenSEO project id every run — state does not store it. Call `list_projects` (call
 pattern in section 2) and match the host of `site_url` against each project's `domain`. No match
 means setup did not finish; go back to `references/setup.md`. Every tool below takes `projectId`
@@ -290,6 +296,9 @@ text; a revoked or expired grant needs a reconnect). Leave `gsc.connected` at `f
 rest of this phase as the skip path. **Never set `gsc.connected` to `true` on the strength of the
 card alone.**
 
+If you arrived here from 3.0's re-verification, return to 3.0's `ok: false` bullet instead of taking
+the skip path — that branch owns the routing for an already-connected project.
+
 ### 3.7 If they skip
 
 **This branch is reachable only from 3.0's `false` case or a failed re-verification.** A project
@@ -386,6 +395,12 @@ audit. Get the latest one:
 and `completedAt`. Then:
 
 - `status` is `"completed"` → use its `id` as `<auditId>`. Note `completedAt`; you report it later.
+  **`"completed"` is not by itself a real crawl.** Apply `references/audit.md` section 4's
+  not-an-audit rule before you use it: if `pagesCrawled` is 0, or `get_audit_pages` shows every page
+  with `fetchClass: "error"`, the crawler read nothing — stop the phase here exactly as the
+  cannot-complete branch below says, and **write no snapshot**. A `crawl` block of
+  `pages: 1, issues: []` built from an all-error audit is a fabricated clean bill of health, and
+  section 6's diff would report every real issue as resolved tomorrow.
 - `status` is `"running"` → poll every 10 seconds until it completes, exactly as
   `references/audit.md` section 4 does.
 - `status` is `"failed"`, or the call errors with **"No audits exist for this project yet"** → there

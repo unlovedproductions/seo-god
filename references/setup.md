@@ -49,6 +49,27 @@ Ask: *"What is the full URL of the site you want to work on?"*
 Require a scheme and a host (`https://example.com`). Reject examples and placeholders. Read the
 value back for confirmation before using it. This becomes `site_url`.
 
+**The site must be publicly reachable, and this is where you check it.** The site has to resolve
+publicly to a public IP, because OpenSEO's crawler blocks private and loopback targets and there is
+no environment override. Reject at the ask:
+
+- `localhost`, and any host ending `.local`, `.localhost`, `.localdomain`, `.internal`,
+  `.home.arpa`, `.test`, `.example` or `.invalid`
+- any IP literal, v4 or v6, loopback or not
+- any host with no public suffix — a bare `mysite`, a single-label intranet name
+
+A public domain that resolves to a private IP fails the same way, just later. If the site is
+local-only there are two real options — offer both, and do not continue until one is in place:
+
+- **A public tunnel.** A `cloudflared` quick tunnel is what unblocked end-to-end testing: it hands
+  back a public `https://<random>.trycloudflare.com` pointing at the local port. Use that as
+  `site_url`.
+- **A deployed staging or production domain.** Point the skill at the deployed site instead.
+
+Do not accept a local URL and press on. It does not fail here — it fails twice later, once as
+`Enter a valid domain, like acme.com.` from `create_project` and once as a bare
+`CRAWL_TARGET_BLOCKED` from the crawler, neither of which names the real cause.
+
 Create `seo-god.json` now, in the project root, using the version 1 shape defined in SKILL.md:
 `site_url` filled in, `phases.setup` set to `"in_progress"`, everything else at its documented
 default. Writing it here — before the slow steps — is what makes an interrupted setup resumable.
@@ -108,6 +129,11 @@ If port 3001 is already in use, change **only** the host side (the left number):
 `ports: ["127.0.0.1:3005:3001"]`. Leave the container side and `PORT=3001` alone, and use the new
 port in every command below and in `openseo.url`.
 
+That host port is what steps 5 and 6 call **`<port>`** — 3001 by default, whatever you chose here
+if you changed it — and **`<openseo.url>`** means `http://127.0.0.1:<port>`. Do not hardcode either:
+step 5 derives them from Compose, because on the one machine where the port had to move, assuming
+3001 is how you end up talking to somebody else's install.
+
 ## 4. Boot it
 
 ```
@@ -125,15 +151,36 @@ stop. Do not run `up -d`: there is no image to start, and the failure the user n
 pull error, not a second confusing one.
 
 If `up` fails with `Bind for 127.0.0.1:3001 failed: port is already allocated`, another process
-owns that port: return to step 3, choose a different host port, rewrite the file, retry.
+owns that port: return to step 3, choose a different host port, rewrite the file, **then** retry —
+in that order, and the retry only ever comes after the rewrite. A bare second `up -d` against the
+unchanged file exits 0 and leaves a running container with no host binding at all: it reads as
+success, and step 5 then has nothing of ours to poll.
 
 ## 5. Wait for it to answer
 
-Poll `http://127.0.0.1:3001/api/health` every 3 seconds until it returns HTTP 200, for up to 90
-seconds:
+**Resolve the address from our own Compose project first — never assume the port.** Ask Compose
+what it actually published:
 
 ```
-curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3001/api/health
+docker compose -p seo-god -f .seo-god/docker-compose.yml port open-seo 3001
+```
+
+`port` prints the public host binding for a container port; the trailing `3001` is the **container**
+side, which never changes. A healthy answer looks like `127.0.0.1:3005`. The number it prints is
+`<port>`, and `<openseo.url>` is `http://127.0.0.1:<port>`. Use them in every command in this step
+and step 6, and record `openseo.url` from them in step 7. This is also the only thing that makes the
+instance you poll *ours*: `-p seo-god` addresses the project this setup started, so a stranger's
+OpenSEO on a port we guessed can no longer answer the readiness check and collect the user's site.
+
+**Empty or absent output is a hard failure — not something to retry.** It means the container is
+running with no host binding, which is exactly what a bare `up -d` retry leaves behind (step 4).
+Do not poll and do not retry-and-hope: run `... down`, fix the host port in step 3, `up -d` again,
+and come back here.
+
+Poll `<openseo.url>/api/health` every 3 seconds until it returns HTTP 200, for up to 90 seconds:
+
+```
+curl -s -o /dev/null -w "%{http_code}" <openseo.url>/api/health
 ```
 
 **Shell rule — applies to every curl command in this file, here and in step 6.** Check which shell
@@ -144,7 +191,7 @@ you are in before the first request:
   an alias for `Invoke-WebRequest`, which rejects these flags), put the **whole command on one
   line** (a POSIX `\` continuation is a PowerShell parse error), and use `NUL` in place of
   `/dev/null`. The poll above becomes:
-  `curl.exe -s -o NUL -w "%{http_code}" http://127.0.0.1:3001/api/health`
+  `curl.exe -s -o NUL -w "%{http_code}" <openseo.url>/api/health`
 - Windows PowerShell, any request with a **JSON body** (all of step 6): do not inline the JSON.
   Write it to a file and pass `-d "@thatfile"` — see the worked example in step 6. Verified:
   PowerShell 5.1 silently strips the inner quotes out of a single-quoted JSON argument (curl then
@@ -154,8 +201,8 @@ you are in before the first request:
 
 Use `127.0.0.1`, not `localhost`. The compose file publishes on IPv4 loopback, and on some machines
 `localhost` resolves to IPv6 `::1` first — where either nothing listens or, worse, an unrelated
-local dev server answers and you conclude the wrong thing. (Seen in testing: `localhost:3001`
-returned a different application's HTML while OpenSEO answered correctly on `127.0.0.1:3001`.)
+local dev server answers and you conclude the wrong thing. (Seen in testing: `localhost:<port>`
+returned a different application's HTML while OpenSEO answered correctly on `127.0.0.1:<port>`.)
 
 Expect roughly 45-60 seconds from `up -d` to the first 200 once the image is pulled — the container
 builds the app on first start, which upstream documents as 1-2 minutes. Every container recreate
@@ -198,7 +245,7 @@ Git Bash; on Windows PowerShell use `curl.exe`, one line, with the JSON body in 
 First list what already exists, so a re-run does not create a duplicate:
 
 ```
-curl -s -X POST http://127.0.0.1:3001/mcp \
+curl -s -X POST <openseo.url>/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}'
@@ -209,7 +256,7 @@ pattern for every request in this step; adapt the payload and reuse it:
 
 ```
 '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_projects","arguments":{}}}' | Set-Content -Path .seo-god\mcp-body.json -Encoding ascii
-curl.exe -s -X POST http://127.0.0.1:3001/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "@.seo-god/mcp-body.json"
+curl.exe -s -X POST <openseo.url>/mcp -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" -d "@.seo-god/mcp-body.json"
 ```
 
 The reply's `result.structuredContent.projects` is an array of
@@ -224,14 +271,14 @@ always send it, because it sets the default target for the domain, backlink and 
 (`https://www.example.com/blog` becomes `example.com`):
 
 ```
-curl -s -X POST http://127.0.0.1:3001/mcp \
+curl -s -X POST <openseo.url>/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"create_project","arguments":{"name":"example.com","domain":"https://example.com"}}}'
 ```
 
 The reply carries `result.structuredContent.project` with `id`, `name`, `domain`, `locationCode`,
-`languageCode` and `url`. Confirm the project page answers: `http://127.0.0.1:3001/p/<id>` → 200.
+`languageCode` and `url`. Confirm the project page answers: `<openseo.url>/p/<id>` → 200.
 
 The default market is `locationCode: 2840` / `languageCode: "en"` (United States / English). If the
 user's audience is elsewhere, tell them they can change the project's market in the dashboard —
@@ -241,7 +288,7 @@ Do not store the project id in `seo-god.json`; the state schema in SKILL.md does
 Later phases resolve it by calling `list_projects` and matching the site's host.
 
 **If the MCP call fails for any reason**, fall back to the dashboard: ask the user to open
-`http://127.0.0.1:3001/projects` and add the site there, then re-run the `list_projects` call above
+`<openseo.url>/projects` and add the site there, then re-run the `list_projects` call above
 to read the id back and confirm. Registration is not complete until a project actually exists.
 
 ## 7. Finish the state file

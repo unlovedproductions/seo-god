@@ -50,6 +50,10 @@ SKILL.md's hard rules outrank even these.
   file asks anything.
 - Cannot tell → treat the run as **unattended**.
 
+**A `claude -p` invocation is never attended, whichever step routed you.** Attended means an
+interactive session with a human who can answer — not merely that the request named a phase. A
+headless `claude -p "/seo-god act"` arrives through SKILL.md step 4 and is still unattended.
+
 Degrade, never refuse. Missing OpenSEO, missing GSC, missing build gate: do what the available
 data supports, name exactly what was missing in the readout, and fabricate none of the rest.
 
@@ -331,7 +335,8 @@ and that would delete the readout you just wrote (audit.md section 7).
 lines that do not apply — but never drop a "not measured" line, because that is the line a reader
 would otherwise fill in with an assumption. When the lines you must write will not fit in 15,
 merge the "not measured" lines into one and drop optional ones; never drop a not-measured fact to
-make the cap. Shape:
+make the cap. If merging still does not fit, **go over 15 lines rather than lose a fact** — the cap
+is a discipline, the honesty rule is not negotiable. Shape:
 
 ```
 ## 2026-08-01 05:12 — daily loop
@@ -377,6 +382,8 @@ readout look busy; a manufactured change is a real risk taken against a real sit
 | `build_cmd` absent, unattended | snapshot + diff + readout, zero edits | repo edits skipped, no `build_cmd`, nobody to ask |
 | `build_cmd` is `"none"` | edits, never verified | **edited, unverified** — no build gate existed |
 | `build_cmd` red on the untouched tree | no edits this run | the error verbatim, marked pre-existing |
+| `build_cmd` present but the harness denied running it | no edits this run | `Gate not run: the build command is not permitted in an unattended session — see references/schedule.md §2.1` |
+| crawl completed but fetched nothing — 0 pages, or every page `fetchClass: "error"` | no snapshot, no edits; acts on the newest snapshot on disk | that the crawl reached no pages so nothing was audited, that snapshot's date, and `stale` on the diff |
 | a file to edit has uncommitted changes | skips that item | which file, and that it was left to the user |
 | `gsc.available: false` | crawl regressions; quick wins and page evidence from tracker rows only | `GSC: not measured` |
 | `gsc.available: false` **and** every `ranks[].position` `null` | no quick wins and **no new page** — no demand data exists at all | `No new page: no demand data (GSC not measured, no rank tracker)` |

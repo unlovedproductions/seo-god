@@ -14,6 +14,13 @@
 # only the readiness probe (node reads openseo.url out of seo-god.json), so a
 # machine without them still runs the loop and says so in the marker notes.
 #
+# --skill-dir <path> points at THIS skill's folder. A headless session can only
+# read files inside its working directories, and the skill lives outside the
+# project, so without --add-dir on that path `claude -p` can read none of
+# references/*.md and the loop runs on SKILL.md's summary alone. The installer
+# passes the real path into the scheduler entry; the default below covers a
+# hand-run. Defaults to ${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/seo-god.
+#
 # SEO_GOD_DRY_RUN=1 prints what would happen, writes an ok:true "dry-run"
 # marker, and exits 0 — no network call, no Claude Code session.
 #
@@ -25,6 +32,22 @@ DRY="${SEO_GOD_DRY_RUN:-0}"
 MARKER=".seo-god/last-run.json"
 STEP="startup"
 SUFFIX=""
+SKILL_NOTE=""
+
+SKILL_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/seo-god"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --skill-dir) SKILL_DIR="${2:-}"; shift 2 ;;
+    --skill-dir=*) SKILL_DIR="${1#--skill-dir=}"; shift ;;
+    *) echo "warn: ignoring unknown argument: $1" >&2; shift ;;
+  esac
+done
+
+# The permission grant for an unattended turn. acceptEdits covers Write/Edit and
+# a fixed filesystem-command set and NOTHING else — every curl (the whole OpenSEO
+# MCP surface) and every git call is denied without this. Read-only git only:
+# act.md and audit.md forbid committing, so add/commit/push must never appear.
+ALLOWED_TOOLS='Bash(curl:*),Bash(curl.exe:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git check-ignore:*),Bash(git rev-parse:*),WebSearch'
 
 mkdir -p .seo-god
 # The snapshot directory is deliberately NOT pre-created here: measure.md
@@ -33,6 +56,14 @@ mkdir -p .seo-god
 
 note() {
   printf '{"ts":"%s","ok":%s,"notes":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$1" "$2" > "$MARKER"
+}
+# Both notes matter and neither may overwrite the other: an unreachable OpenSEO
+# and unreadable phase files are different degradations of the same run.
+notes_all() {
+  if [ -n "$SUFFIX" ] && [ -n "$SKILL_NOTE" ]; then printf '%s; %s' "$SUFFIX" "$SKILL_NOTE"
+  elif [ -n "$SUFFIX" ]; then printf '%s' "$SUFFIX"
+  else printf '%s' "$SKILL_NOTE"
+  fi
 }
 # Any unhandled failure — including a non-zero exit from claude — lands here.
 trap 'note false "failed during $STEP (line $LINENO)"' ERR
@@ -61,9 +92,40 @@ else
 fi
 OPENSEO_URL="${OPENSEO_URL%/}"
 
+# --add-dir only when the directory exists (claude validates it at startup and a
+# missing path is a hard startup failure) and only when it is not already inside
+# the project root, where the session can read it anyway.
+STEP="resolving skill dir"
+ADD_DIR_ARGS=()
+SKILL_DIR_ABS=""
+if [ -d "$SKILL_DIR" ]; then
+  SKILL_DIR_ABS="$(cd "$SKILL_DIR" && pwd)"
+  PROJECT_ABS="$(pwd)"
+  if [ "${SKILL_DIR_ABS#"$PROJECT_ABS"/}" = "$SKILL_DIR_ABS" ] && [ "$SKILL_DIR_ABS" != "$PROJECT_ABS" ]; then
+    ADD_DIR_ARGS=(--add-dir "$SKILL_DIR_ABS")
+  fi
+else
+  SKILL_NOTE="skill dir not found, phase files unreadable"
+  echo "warn: skill dir not found at $SKILL_DIR — the run cannot read references/*.md" >&2
+fi
+
 if [ "$DRY" = "1" ]; then
   echo "DRY: cwd $(pwd)"
   echo "DRY: would GET ${OPENSEO_URL:-<unknown>}/api/health (max 120s, non-fatal)"
+  echo "DRY: skill dir ${SKILL_DIR_ABS:-$SKILL_DIR}"
+  # The dry run proves the phase files are READABLE, not merely that the CLI
+  # exists: an unreadable act.md is the failure that silently guts the loop.
+  if [ -r "${SKILL_DIR_ABS:-$SKILL_DIR}/references/act.md" ]; then
+    echo "DRY: references/act.md readable — yes"
+  else
+    echo "DRY: references/act.md readable — NO (the daily loop would run blind)"
+  fi
+  if [ ${#ADD_DIR_ARGS[@]} -gt 0 ]; then
+    echo "DRY: would pass --add-dir \"$SKILL_DIR_ABS\""
+  else
+    echo "DRY: would pass no --add-dir (skill dir missing, or inside the project)"
+  fi
+  echo "DRY: would pass --allowedTools $ALLOWED_TOOLS"
   echo 'DRY: would run claude -p "/seo-god daily" --permission-mode acceptEdits --max-turns 80'
   if command -v claude >/dev/null 2>&1; then
     echo "DRY: claude CLI found"
@@ -71,6 +133,7 @@ if [ "$DRY" = "1" ]; then
     echo "DRY: claude CLI NOT on PATH — a real run would stop here"
   fi
   [ -z "$SUFFIX" ] || echo "DRY: note — $SUFFIX"
+  [ -z "$SKILL_NOTE" ] || echo "DRY: note — $SKILL_NOTE"
   echo "DRY: would write $MARKER"
   note true "dry-run"
   exit 0
@@ -109,10 +172,15 @@ STEP="claude -p /seo-god daily"
 # would reach claude.exe as "C:/Program Files/Git/seo-god daily" — a real 80-turn
 # acceptEdits session on a garbage prompt, ending in an ok:true marker. Scoped to
 # this one prefix, and ignored outright by macOS and Linux shells.
-MSYS2_ARG_CONV_EXCL='/seo-god' claude -p "/seo-god daily" --permission-mode acceptEdits --max-turns 80
+MSYS2_ARG_CONV_EXCL='/seo-god' claude -p "/seo-god daily" \
+  --permission-mode acceptEdits \
+  --allowedTools "$ALLOWED_TOOLS" \
+  ${ADD_DIR_ARGS[@]+"${ADD_DIR_ARGS[@]}"} \
+  --max-turns 80
 
-if [ -n "$SUFFIX" ]; then
-  note true "completed ($SUFFIX)"
+NOTES="$(notes_all)"
+if [ -n "$NOTES" ]; then
+  note true "completed ($NOTES)"
 else
   note true "completed"
 fi

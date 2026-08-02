@@ -61,7 +61,14 @@ is worth nothing on a site that broke yesterday, and a new page is worth nothing
 broken one. Unattended runs ask zero questions; a run that cannot reach OpenSEO degrades, does what
 the available data supports, and names what was missing in the readout instead of guessing.
 
+**The scheduled run edits files in your repository while you are not there** — behind your own build
+gate, and it **never commits.** The changes wait in your working tree for you to review, alongside a
+dated readout saying what it did and why.
+
 ## Install
+
+<!-- PUBLISH BLOCKER: replace <owner> in BOTH clone commands below with the real GitHub
+     owner before this repo goes public. Left as-is, the install instruction fails on day one. -->
 
 **macOS / Linux**
 
@@ -89,7 +96,7 @@ never committed — that is where secrets, the run marker and local scratch live
 
 ## What you need
 
-- **A website you own.** Any stack. Repo access strongly preferred, because the fixes are edits in your repository, gated by your own build.
+- **A website you own, and one that is publicly reachable.** Any stack. Repo access strongly preferred, because the fixes are edits in your repository, gated by your own build. The crawler is OpenSEO's and it blocks private and loopback targets with no override, so `localhost`, a `.local` name or a private IP cannot be audited — put a public tunnel (a `cloudflared` quick tunnel works) or a deployed staging domain in front of a local site first.
 - **Claude Code.**
 - **Docker** — Desktop on macOS and Windows, Engine plus Compose v2 on Linux. OpenSEO runs locally from a published image; nothing is built from source.
 - **No paid API keys.** The free path is complete, end to end.
@@ -106,7 +113,7 @@ without them. Details in [references/power-ups.md](references/power-ups.md).
 
 | Power-up | | What it adds |
 | --- | --- | --- |
-| **DataForSEO** | optional | Real search volume, keyword difficulty and backlink summaries. Budget-capped before the first call by design: a `$0.50` default per-run cap (env-tunable), a `$2.00` balance floor that disables the paid plane outright, and a spend line in every readout. |
+| **DataForSEO** | optional | Real search volume, keyword difficulty and backlink summaries. Budget-capped before the first call by design: a `$0.50` default per-run cap (env-tunable), a `$2.00` balance floor that disables the paid plane outright, and a spend line in every readout that spent, or that ran with the paid plane disabled. |
 | **LLM API keys** | optional | Upgrades AI-visibility measurement from a search-results proxy to direct model probing — the same locked prompts, asked to the models themselves. |
 | **Telegram digest** | optional | The daily run ends with one plain-text message on your phone. Outbound only, and it fires only on runs that complete: no message means the run did not finish. |
 
@@ -118,15 +125,22 @@ conflict with one is required to stop and say so.
 - **Secrets stay in a gitignored env file** — `.seo-god/secrets.env`, gitignored at creation, never printed, never committed.
 - **Missing data is reported as missing**, never zero-filled and never extrapolated. Partial coverage is labelled partial.
 - **No bought links, no fake reviews, no auto-posting** to social or forums, and no fabricated claims on pages it writes. Directory submissions stay owner-driven.
-- **Any paid API path is budget-capped before the first call** — per-run cap, balance floor, spend ledger. No code path spends money with no cap in force, and raising the cap is yours alone to do.
+- **Any paid API path is budget-capped before the first call** — a per-run bound checked before the first call, a balance floor wherever the provider exposes a balance, and a spend ledger. No code path spends money with no cap in force, and raising the cap is yours alone to do. ([references/power-ups.md](references/power-ups.md) names which parts each provider supports — the LLM providers expose no balance endpoint, so that plane is capped and ledgered but has no floor.)
 - **No SERP scraping of Google**, anywhere in the skill, with or without a key.
 - **Scheduled runs ship with failure visibility.** If no run marker appears for 48 hours, your next `/seo-god` session opens with that warning before anything else.
+- **It asks for the narrowest permissions that work.** For the turn it runs in, the skill requests `curl` (the local OpenSEO container is an HTTP API) and read-only `git` — `status`, `diff`, `log`, `check-ignore`, `rev-parse`. `git add`, `git commit` and `git push` are deliberately not among them, and nothing in this skill ever asks you to turn permission checks off wholesale.
 
 ## Tested on
 
-Built and verified on **Windows**. The macOS and Linux paths — launchd, cron, the POSIX runner — are
-written against documented behaviour and stub-verified, but have not yet been exercised on a real
-host.
+Built and verified end to end on **Windows 11 + Git Bash**, driving real Docker (29.6.2, Compose
+v5.3.1) and a real OpenSEO container (0.1.3) against a live site: a 7-page crawl, 10 issue rows
+across 6 types, and both deliberately seeded defects found, triaged and fixed behind the build gate.
+The whole run — including the parts that failed — is written up in
+**[docs/SMOKE.md](docs/SMOKE.md)**, with every finding marked fixed or still open. It is worth
+reading before you trust this with a site.
+
+The macOS and Linux paths — launchd, cron, the POSIX runner — are written against documented
+behaviour and stub-verified, but have not yet been exercised on a real host.
 
 **Help wanted:** run it on macOS or Linux and open an issue with what happened, working or broken.
 That is the single most useful contribution to this repo right now.
@@ -155,6 +169,14 @@ leaves every one of them alone.
 in [`references/`](references/), loaded only when that phase runs. The full design — the decisions,
 what is deliberately out of scope, and the success criteria this was built against — is in
 [docs/DESIGN.md](docs/DESIGN.md).
+
+The skill's description is the only thing that decides whether Claude Code loads it for a given
+request, so it was measured rather than guessed: [docs/EVAL.md](docs/EVAL.md) is a 240-run
+triggering eval — the wording, the false-positive set, and the numbers it moved.
+
+Contributing: `node scripts/skill-lint.mjs` before you open a PR. It checks the structural rules
+(SKILL.md's length and routing, every `references/*.md` reachable, both shell runners parsing) and
+exits non-zero on a violation.
 
 ## License
 

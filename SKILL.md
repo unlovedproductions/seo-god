@@ -1,6 +1,7 @@
 ---
 name: seo-god
 description: "Agentic SEO operator for your own website: audits and fixes your site with OpenSEO, measures rankings + Google Search Console, works to get ChatGPT and other AI engines citing you, and schedules the whole loop daily. Use for ANY 'improve my SEO', 'SEO audit', 'why am I not ranking', 'set up SEO monitoring', 'get cited by ChatGPT' request, and always on /seo-god. Not for competitor-only data pulls that leave your own site untouched."
+allowed-tools: "Bash(curl:*), Bash(curl.exe:*), Bash(git status:*), Bash(git diff:*), Bash(git log:*), Bash(git check-ignore:*), Bash(git rev-parse:*), WebSearch"
 ---
 
 # SEO-GOD
@@ -20,7 +21,7 @@ folder. Setup creates it. Version 1 shape:
 {
   "version": 1,
   "site_url": "https://example.com",
-  "openseo": { "url": "http://localhost:3001", "status": "not_installed" },
+  "openseo": { "url": "http://127.0.0.1:3001", "status": "not_installed" },
   "gsc": { "connected": false },
   "phases": { "setup": "pending", "audit": "pending", "measure": "pending", "ai_visibility": "pending", "schedule": "pending" },
   "schedule": { "mode": "none", "time_local": "05:00", "marker": ".seo-god/last-run.json" },
@@ -31,6 +32,9 @@ folder. Setup creates it. Version 1 shape:
 
 Allowed values: every phase is `"pending"`, `"in_progress"`, or `"done"`. `openseo.status` is
 `"not_installed"`, `"running"`, or `"error"`. `schedule.mode` is `"none"`, `"os"`, or `"cloud"`.
+
+Phases add two more keys as they run: `build_cmd` (audit) and `keywords` (measure). Both are part
+of version 1 — preserve them like any other key.
 
 ## State detection — work through these in order, every single invocation
 
@@ -100,7 +104,7 @@ are not phases and have no entry in `phases`; they are always available once set
 | --- | --- | --- |
 | setup | `references/setup.md` | `site_url`, `openseo.url`, `openseo.status`, `phases.setup` |
 | audit | `references/audit.md` | `build_cmd`, `phases.audit` |
-| measure | `references/measure.md` | `gsc.connected`, `phases.measure` |
+| measure | `references/measure.md` | `gsc.connected`, `keywords`, `phases.measure` |
 | act (daily loop) | `references/act.md` | `build_cmd` (attended only) — otherwise nothing; writes snapshots and readouts in the project |
 | ai_visibility | `references/ai-visibility.md` | `ai_prompts_locked`, `phases.ai_visibility` |
 | schedule | `references/schedule.md` | `schedule.mode`, `schedule.time_local`, `phases.schedule`, `schedule.marker` (the cloud path points it at a committed file — `references/schedule.md` §4.4 owns that) |
@@ -113,7 +117,9 @@ to load another phase file, finish the current one first — one phase per invoc
 
 - Free path requires ZERO paid keys — DataForSEO/LLM keys/Telegram are optional power-ups only.
 - No SERP scraping of Google anywhere in the skill.
-- Any paid API path must be budget-capped BEFORE the first call (per-run cap + balance floor + ledger).
+- Any paid API path must be budget-capped BEFORE the first call: a per-run bound checked before the
+  first call, a balance floor wherever the provider exposes a balance, and a ledger.
+  `references/power-ups.md` names which parts each provider supports.
 - Secrets live in `.seo-god/secrets.env`, gitignored at creation, never printed, never committed.
 - Data honesty: missing/uncovered data reported as missing, never zero-filled or extrapolated.
 - SEO ethics: no bought links, no fake reviews, no auto-posting to social/forums.

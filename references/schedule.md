@@ -76,6 +76,46 @@ before** the entry is created; re-running replaces the entry in place (idempoten
 second daily run); and each one ends by echoing exactly what it registered, when it fires next,
 and its own uninstall command.
 
+**The two flags that make an unattended run work at all.** A headless `claude -p` is not a small
+interactive session; it is a session with no human, no trust dialog, and a working directory that
+holds only the project. Both installers therefore pass the skill's own path into the scheduler
+entry, and the runner turns it into `--add-dir`:
+
+| Flag | Why it exists | Where it comes from |
+| --- | --- | --- |
+| `--add-dir <skill root>` | a session can only read files inside its working directories, and this skill lives outside the project — without it `claude -p` can read **none** of `references/*.md` and the loop runs on SKILL.md's summary alone | the installer resolves it from its own location and writes it into the Task Scheduler argument / launchd `ProgramArguments` / cron line; the runner also accepts `--skill-dir` / `-SkillDir` by hand and defaults to `~/.claude/skills/seo-god` |
+| `--allowedTools` | `acceptEdits` auto-approves Write/Edit and a fixed filesystem-command set and **nothing else**, so every `curl` (the whole OpenSEO MCP surface) and every `git` call is denied | the runner passes the same list SKILL.md's `allowed-tools` frontmatter declares: `curl`, `curl.exe`, and read-only `git status` / `diff` / `log` / `check-ignore` / `rev-parse` |
+
+The absolute skill path lives in the machine-local scheduler entry only — never in the copied
+runner — so the committed copy still works unchanged on a second machine. The runner adds
+`--add-dir` only when that directory exists and sits outside the project; when it is missing the
+run still happens and the marker says `skill dir not found, phase files unreadable`, so the failure
+is visible instead of silent.
+
+`git add`, `git commit` and `git push` are deliberately **not** granted. `references/act.md` and
+`references/audit.md` forbid committing, and a permission grant must never contradict them.
+
+**The build gate is the one thing the skill cannot pre-authorise.** `build_cmd` is an arbitrary
+command for this project, so no static skill can allow it in advance. Show the user the one line to
+add to **`~/.claude/settings.json`** (user scope — a project-scoped `.claude/settings.json` is
+silently ignored in `-p` mode, because its rules only apply after a workspace-trust dialog that
+never appears headlessly), under `permissions.allow`, using their own command:
+
+```json
+{ "permissions": { "allow": ["Bash(npm run build:*)"] } }
+```
+
+Say plainly why: without it the gate cannot run unattended, and `references/act.md`'s degrade table
+then makes the run edit nothing and say so. **Never offer a blanket permission-bypass mode as the
+fix** — not the skip-every-prompt permission mode, not the skip-all-permissions CLI flag. One
+allow-entry naming one command is the whole ask; an unattended agent holding every permission in
+the user's repository is not a trade this skill makes, and no file in this skill names such a mode
+in a form anyone can paste.
+
+**Say the override out loud, too:** `--permission-mode` beats `defaultMode` from any settings file,
+so a user whose global default is more permissive still gets exactly this restricted set in
+scheduled runs. That is intended.
+
 You run the installer for the user's OS yourself, from their project root, and show them its
 output as it stands — the last lines are the uninstall command and the dry-run command they will
 want later. A non-zero exit means nothing was scheduled: relay the message verbatim, fix what it
@@ -175,16 +215,33 @@ Uninstall: `crontab -e`, delete the `scripts/daily-run.sh` line.
 From the project root:
 
 ```
-SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh                  # macOS, Linux
-$env:SEO_GOD_DRY_RUN=1; pwsh -NoProfile -File scripts\daily-run.ps1   # Windows (then Remove-Item Env:\SEO_GOD_DRY_RUN)
+SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh --skill-dir <skill root>                  # macOS, Linux
+$env:SEO_GOD_DRY_RUN=1; pwsh -NoProfile -File scripts\daily-run.ps1 -SkillDir <skill root>   # Windows (then Remove-Item Env:\SEO_GOD_DRY_RUN)
 ```
 
-It prints what a real run would do and exits 0 without calling Claude Code at all. Two things
-to be straight with the user about:
+Both installers print this line with the real path already filled in — use theirs.
+
+It prints what a real run would do and exits 0 without calling Claude Code at all.
+
+**Read the `references/act.md readable` line before anything else.** The dry run prints the
+resolved skill directory and whether the phase file can actually be read:
+
+```
+DRY: skill dir /home/me/.claude/skills/seo-god
+DRY: references/act.md readable — yes
+DRY: would pass --add-dir "/home/me/.claude/skills/seo-god"
+```
+
+A `NO` there means tomorrow's run reaches Claude Code with no phase file, and the daily loop runs
+blind on SKILL.md's summary — the single most important thing this dry run proves. "The CLI is on
+PATH" proves nothing by comparison. Fix the path and re-run the installer before you call the
+schedule installed.
+
+Two more things to be straight with the user about:
 
 - **The dry run writes a real marker** (`ok:true`, `notes:"dry-run"`), so the missed-run check
   in section 3 stays quiet for 48h afterwards. It proves the plumbing — the working directory,
-  the CLI on PATH, the marker path — and nothing about the loop.
+  the CLI on PATH, the skill directory, the marker path — and nothing about the loop itself.
 - **Do not use `Start-ScheduledTask` / `launchctl start` as a test.** Those start a real
   unattended run: a Claude Code session with `--permission-mode acceptEdits` in the user's
   repository. If they want a run right now, `/seo-god act` does the same work attended, where
@@ -356,13 +413,24 @@ If a user specifically wants the score history without attending, `references/ai
 section 0 already defines the headless path, so a second monthly entry works:
 
 ```
-cd <project> && claude -p "/seo-god ai-visibility" --permission-mode acceptEdits --max-turns 80
+cd <project> && claude -p "/seo-god ai-visibility" \
+  --permission-mode acceptEdits \
+  --add-dir "<skill root>" \
+  --allowedTools 'Bash(curl:*),Bash(curl.exe:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git check-ignore:*),Bash(git rev-parse:*),WebSearch' \
+  --max-turns 80
 ```
 
-Two warnings, both required: **schedule it hours away from the daily run** — two Claude sessions
-in one repository will fight over the same files and the same build gate — and **it writes no
-marker**, so a monthly run that stops happening is invisible to the 48h check. Neither installer
-creates this entry; the user adds it themselves.
+`--add-dir` is not optional here either — it has the identical wall the daily runner has, and
+without it the session cannot read `references/ai-visibility.md` at all.
+
+Warnings, all required: **schedule it hours away from the daily run** — two Claude sessions
+in one repository will fight over the same files and the same build gate; **it writes no
+marker**, so a monthly run that stops happening is invisible to the 48h check; and **a headless
+session may not have `WebSearch` granted** — the grant above requests it, but if the harness
+denies it, every prompt fails and the phase honestly records `measured: false` with a zero score
+for that month (`references/ai-visibility.md` section 3 owns that branch). Tell the user that
+before they schedule it, not after the first empty month. Neither installer creates this entry;
+the user adds it themselves.
 
 ## 6. Maintenance — what accumulates, and what is safe to delete
 
@@ -420,6 +488,8 @@ Briefly, without embellishment:
 | `ok:false`, `seo-god.json not found in the working directory` | the entry's working directory is wrong, or the project moved | re-run the installer from the project root |
 | `ok:false`, `failed during <step> (line N)` | the runner died at that step | quote it to the user verbatim; `<step>` names the stage, and the scheduler's log has the rest |
 | `ok:false`, `interrupted during <step>` | something asked the run to stop mid-flight | usually a logout or a shutdown during the run; no action if the next run is clean |
+| `ok:false`, `failed during claude -p /seo-god daily` with no other clue | most often the session hit `--max-turns 80` and exited non-zero | read yesterday's readout for how far it got; a run that does the full loop on a large site can reach the cap, and raising it is a hand-edit of the runner's last line |
+| marker notes carry `skill dir not found, phase files unreadable` | the skill folder moved or was renamed after the schedule was installed | re-run the installer so the entry carries the new path, then prove it with section 2.5's dry run |
 | marker stale, log empty or absent | the entry never fired: machine off, task disabled, agent not loaded | Windows: Task Scheduler → SEO-GOD Daily → History. macOS: `launchctl list \| grep com.seo-god.daily`. Linux: `crontab -l`, then the system log for `CRON`. |
 | marker stale, log shows a run that started and stopped | a hard kill — the 2h limit, a power cut, a forced reboot (section 3) | read yesterday's readout for what it was doing; a run that hits 2h is usually waiting on a crawl that never completed |
 | `mode` is `cloud` and the marker is missing | nothing has been pulled yet | `git pull`; still nothing means the routine has not run — check it in claude.ai and look for its commits |

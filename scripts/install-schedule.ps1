@@ -61,6 +61,26 @@ if (-not (Test-Path -LiteralPath $srcRunner -PathType Leaf)) {
 }
 $destDir = Join-Path $ProjectDir 'scripts'
 $destRunner = Join-Path $destDir 'daily-run.ps1'
+
+# The skill root, resolved from THIS installer's own location. The runner is copied into the
+# project and so cannot derive it; a headless `claude -p` can only read files inside its working
+# directories, so without this path passed through as -SkillDir the scheduled run can read none
+# of references/*.md. The absolute path lives in the machine-local task, never in the committed
+# copy of the runner.
+$skillRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
+
+# Refuse BEFORE touching the project. scripts\daily-run.ps1 is not an outlandish name for a file
+# the user already has, and a silent Copy-Item -Force over it is the one thing in this installer
+# that would destroy their work. Only a file carrying the shipped runner's own header marker may
+# be overwritten; the marker is on line 1 of daily-run.ps1.
+if (Test-Path -LiteralPath $destRunner -PathType Leaf) {
+  $existingHead = ''
+  try { $existingHead = (Get-Content -LiteralPath $destRunner -TotalCount 5 -ErrorAction Stop) -join "`n" } catch { $existingHead = '' }
+  if ($existingHead -notmatch 'SEO-GOD daily runner') {
+    Fail "$destRunner already exists and is not the seo-god runner - move or rename it, then re-run. Nothing was scheduled."
+  }
+}
+
 if (-not (Test-Path -LiteralPath $destDir -PathType Container)) {
   New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 }
@@ -106,8 +126,9 @@ if ($at -le (Get-Date).AddMinutes(2)) { $at = $at.AddDays(1) }
 
 $existed = [bool](Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue)
 
+$taskArgument = "-NoProfile -File `"$destRunner`" -SkillDir `"$skillRoot`""
 $action = New-ScheduledTaskAction -Execute $pwshPath `
-  -Argument "-NoProfile -File `"$destRunner`"" -WorkingDirectory $ProjectDir
+  -Argument $taskArgument -WorkingDirectory $ProjectDir
 $trigger = New-ScheduledTaskTrigger -Daily -At $at
 # AllowStartIfOnBatteries + DontStopIfGoingOnBatteries: a laptop on battery still runs, and a
 # run does not die when the charger comes out. StartWhenAvailable: a start missed because the
@@ -155,13 +176,15 @@ if ($existed) { $verb = 'Replaced' }
 
 Write-Host ""
 Write-Host "$verb scheduled task '$TaskName' - daily at $Time local time. Runner $runnerNote."
-Write-Host "  runs:        $pwshPath -NoProfile -File `"$destRunner`""
+Write-Host "  runs:        $pwshPath $taskArgument"
 Write-Host "  working dir: $ProjectDir  (seo-god.json must stay here)"
+Write-Host "  skill dir:   $skillRoot"
+Write-Host "               passed as -SkillDir, so the scheduled run can read the phase files in references/"
 Write-Host "  next run:    $nextRun  (the next occurrence; a time under 2 minutes away goes to tomorrow, never mid-install)"
 Write-Host "  hardening:   runs on battery, survives unplugging, wakes the PC, catches up a start missed while it was off, never overlaps itself, killed after 2h"
 Write-Host "  logged at:   Task Scheduler > Task Status (Windows keeps the history, not a log file)"
 Write-Host "  marker:      $ProjectDir\.seo-god\last-run.json - /seo-god warns you when it goes 48h stale"
-Write-Host "  dry run it:  `$env:SEO_GOD_DRY_RUN=1; Push-Location '$ProjectDir'; pwsh -NoProfile -File '$destRunner'; Pop-Location; Remove-Item Env:\SEO_GOD_DRY_RUN"
+Write-Host "  dry run it:  `$env:SEO_GOD_DRY_RUN=1; Push-Location '$ProjectDir'; pwsh -NoProfile -File '$destRunner' -SkillDir '$skillRoot'; Pop-Location; Remove-Item Env:\SEO_GOD_DRY_RUN"
 Write-Host "  uninstall:   Unregister-ScheduledTask -TaskName '$TaskName' -Confirm:`$false"
 Write-Host ""
 Write-Host "The task runs as you and only while you are logged on. It is not a service: a PC that"

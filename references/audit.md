@@ -25,8 +25,15 @@ Read `seo-god.json` from the current working directory. You need two values from
 Set `phases.audit` to `"in_progress"` and write the file to disk now, preserving every key you do
 not recognise. Doing it before the slow steps is what makes an interrupted audit resumable.
 
+**Loop-breaker — check the host before you resolve anything.** If `site_url`'s host fails
+`references/setup.md` section 2's public-reachability rule — `localhost`, an IP literal, a
+`.local` / `.localhost` / `.internal` / `.test` / `.example`-class suffix, or any host with no
+public suffix — say so and stop here, with setup's own two options: a public tunnel or a deployed
+domain. Do **not** route back to `references/setup.md` for this: that file refuses the same host, so
+routing back is an infinite loop with no error the user can act on.
+
 Setup deliberately does not store the OpenSEO project id, so resolve it every run: call
-`list_projects` (call pattern in step 3) and match the host of `site_url` against each project's
+`list_projects` (call pattern in section 3) and match the host of `site_url` against each project's
 `domain`. No match means setup did not finish — go back to `references/setup.md`. Every audit tool
 takes `projectId` and it is **required**; there is no "default project".
 
@@ -50,7 +57,7 @@ Store the working command as `build_cmd` in `seo-god.json` (read, modify, write 
 **If the project genuinely has no build or check step at all** — hand-written HTML, no toolchain —
 ask for the closest thing they do run before shipping (a linter, a site generator, a validator).
 Only if there is truly nothing, store `build_cmd: "none"`. Then there is no gate, so you do not get
-to say "fixed": every edit is reported as **edited, unverified**, listed separately in the step 8
+to say "fixed": every edit is reported as **edited, unverified**, listed separately in the section 8
 summary, and the summary states plainly that no build gate existed. Do not invent a substitute gate
 and do not let the absence of one quietly become a pass.
 
@@ -85,7 +92,7 @@ version of the skill is written against these five, which are registered by Open
 
 | Tool | What it does | Key arguments |
 | --- | --- | --- |
-| `list_projects` | the registered projects, to resolve `projectId` (step 1) | none |
+| `list_projects` | the registered projects, to resolve `projectId` (section 1) | none |
 | `run_site_audit` | starts a crawl, returns immediately | `projectId`*, `url`*, `maxPages`, `runLighthouse` |
 | `get_audit_status` | progress of a crawl | `projectId`*, `auditId` |
 | `get_audit_issues` | the prioritized issue report | `projectId`*, `auditId`, `severity`, `issueType`, `limit` |
@@ -111,16 +118,40 @@ later call so a concurrent audit cannot change what you are reading.
 that case (for example "Audit capacity reached for this account") — report it verbatim, leave
 `phases.audit` at `"in_progress"`, and stop. Do not poll for an audit that does not exist.
 
+One of those replies is the bare token `CRAWL_TARGET_BLOCKED`. It reads like an internal error and
+is not one: OpenSEO's crawler refused the target because it is not publicly reachable — loopback, a
+private IP, or a private-use suffix. Decode it for the user instead of echoing the token, and give
+them the two options from `references/setup.md` section 2 (a public tunnel, or a deployed domain).
+Do not retry and do not route back into setup: nothing changes until the target does.
+
 Then poll `get_audit_status` every 10 seconds. `result.structuredContent.status` carries `status`,
 `currentPhase`, `pagesCrawled`, `pagesTotal` and the Lighthouse counters. `status` is exactly one of:
 
 - `"running"` — keep polling. Report progress to the user roughly every minute; a real crawl takes
   minutes, and page count is the honest signal of how long is left.
-- `"completed"` — go to step 5.
+- `"completed"` — the crawl finished, which is not the same as the crawl having read anything. Apply
+  the not-an-audit check below, then go to section 5.
 - `"failed"` — report the status verbatim, leave `phases.audit` at `"in_progress"`, and stop.
 
 If `pagesCrawled` stops advancing for 10 minutes while `status` is still `"running"`, say so and ask
 the user whether to keep waiting; do not silently spin.
+
+**A crawl that fetched nothing is not an audit.** After `"completed"`, call `get_audit_pages` for
+this audit before you read a single issue. If `pagesCrawled` is 0, or **every** returned page has
+`fetchClass: "error"`, the crawler reached nothing — that is an absence of evidence, not evidence of
+a clean site. Report it in the same words section 5 uses for blocked pages (those pages were not
+audited), leave `phases.audit` at `"in_progress"`, write **no** snapshot, and stop. Never report "no
+issues found" from this state: `references/measure.md` section 5.2 would persist `crawl.pages: 1,
+issues: []` into the permanent snapshot history, and the next day's diff would then report every
+genuine issue as resolved. This is not an exotic case — a DNS negative cache produced exactly it
+(one page, `statusCode: 0`, `fetchClass: "error"`, 0.4 seconds) on the first end-to-end run.
+
+**Lighthouse counters — `lighthouseFailed > 0` means that many pages have no performance data at
+all.** The status carries `lighthouseTotal`, `lighthouseCompleted` and `lighthouseFailed`. Pages
+whose Lighthouse run failed were not measured, exactly as blocked pages were not audited: "no
+performance issues" and "performance was never measured" are different statements, and only the
+second is true for them. Carry the counts into section 8. If `lighthouseCompleted` is 0, priority
+class 5 has no data behind it at all — say so rather than reporting the class clean.
 
 ## 5. Read the issues
 
@@ -220,7 +251,9 @@ edit, not after the first failure.
   precondition for editing.
 - **If there is no git:** say so once, plainly — the per-batch snapshots below are the only undo
   that will exist for this run.
-- **Capture a run stamp now** — the current date-time as `YYYY-MM-DD-HHMM`. Every backup path in this
+- **Capture a run stamp now** — the current **local** date-time as `YYYY-MM-DD-HHMM`. Local, not
+  UTC, and the same clock the punch list uses in section 7: mixing the two splits one run's
+  artifacts across two dates on any machine at a UTC offset. Every backup path in this
   run uses it, and every restore reads from it. Capture it once and reuse it: without it, a later
   run's batch 3 would overwrite this run's batch 3 backup and restore the wrong files.
 
@@ -288,7 +321,7 @@ Rules for the edits themselves: change only what the issue requires; do not refo
 code, rename things, or "improve" anything you were not sent to fix. Write real titles and
 descriptions from the page's actual content — read the page source before you write its title. Do
 not commit the user's repository unless they ask; when the phase ends, show them the changed files
-(step 8) so they can review and commit it themselves.
+(section 8) so they can review and commit it themselves.
 
 ## 7. Write the punch list
 
@@ -298,6 +331,9 @@ their server or CMS:
 ```
 dist/seo/audit-punchlist-<YYYY-MM-DD>.md
 ```
+
+`<YYYY-MM-DD>` is today's **local** date — the same clock as section 6's run stamp, so one run's
+artifacts always carry one date.
 
 This lives in their repository on purpose — it is a durable deliverable, not session scratch, and
 `.seo-god/` is never committed. Two guards, both required:
@@ -332,6 +368,8 @@ every key you do not recognise, keeping `version: 1` — and write it to disk im
 Then give the user a short summary, in this order and with no embellishment:
 
 - Pages crawled, and how many were **blocked** and therefore not audited.
+- **Performance: not assessed — N of M Lighthouse runs failed** — whenever `lighthouseFailed > 0`.
+  Drop the line only when every Lighthouse run completed.
 - Total issues found, from `summary`.
 - **Fixed: N** — broken down by the five classes. Every one of these passed `build_cmd`.
 - **Punted: M** — with the punch list path.

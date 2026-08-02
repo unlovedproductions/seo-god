@@ -139,9 +139,10 @@ C4 dominates: it is the only candidate that fixes a failure without breaking som
 | "/seo-god" | **hit** 3/3 — the always-trigger clause holds |
 
 Negative controls all clean, and they routed sensibly rather than merely failing to fire:
-"review this PR" → `review`, "write a blog post" → `aria-voice`, "fix my docker compose" and the
-GA4 tag bug → `superpowers:systematic-debugging`, the LCP profile → `chrome-devtools-mcp`, the
-reels drop → `virality-review`. Not-triggering here is the right answer arriving, not a gap.
+"review this PR" → `review`, "fix my docker compose" and the GA4 tag bug →
+`superpowers:systematic-debugging`, the LCP profile → `chrome-devtools-mcp`; "write a blog post" and
+the reels drop each went to a writing skill and a video-analytics skill installed on the test
+machine. Not-triggering here is the right answer arriving, not a gap.
 
 ---
 
@@ -238,7 +239,7 @@ and are logged rather than acted on:
    always pass `--model`.** Every figure in §2 was measured on `claude-fable-5`, the CLI default,
    because no `--model` was passed — while the session skill-creator's method points at was
    `claude-opus-5`. Whether a description triggers is a model-level judgement, so 19/20 at 100%
-   precision is a result *for that model*, not a property of the description. Re-running C4 alone
+   precision is a result *for `claude-fable-5`*, not a property of the description. Re-running C4 alone
    over the same 20 queries at n=3 settles it for about 60 invocations; folding it into item 1's
    re-measurement costs almost nothing extra. The standing fix is smaller and matters more: pass
    `--model` explicitly on every future run and record the resolved ID **with** the scores, so the

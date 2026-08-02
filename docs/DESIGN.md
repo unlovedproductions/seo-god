@@ -45,24 +45,25 @@ seo-god/                      (public repo == the skill folder)
 
 ## The five phases
 
-1. **AUDIT** (free): boot OpenSEO via Docker (AUTH_MODE=local_noauth, embedded SQLite; its
+1. **SETUP** (free): boot OpenSEO via Docker, register the user's site over MCP, and create
+   `seo-god.json` in their project root. Every first run does this pass before any of the rest,
+   and every later phase gates on `phases.setup` being `"done"`.
+2. **AUDIT** (free): crawl with the local OpenSEO container (AUTH_MODE=local_noauth, embedded SQLite; its
    in-container cron never fires — host drives it, learned on FastSolve). Crawl the user's
    site, triage issues by impact, fix what lives in their repo (titles, metas, broken
    links, thin content) with verified edits and the user's own build/typecheck as the gate.
-2. **MEASURE** (free): walk the user through GSC OAuth connect (every gotcha documented);
+3. **MEASURE** (free): walk the user through GSC OAuth connect (every gotcha documented);
    degrade gracefully to OpenSEO rank tracking + crawl deltas if they skip it. Daily
    snapshot to `dist/seo/snapshots/<date>.json` in their repo; run-over-run diff; review
    order is regression-first (regressions > quick wins pos 4-15 > new queries) — the
    FastSolve REVIEW step, genericized.
-3. **ACT** (free): read today's diff, fix regressions first, chase quick wins, produce
-   answer-first content (40-70w TL;DR up top, question-shaped FAQs, numbered steps) for
-   gaps the data shows. Hard honesty laws (see Safety rails).
 4. **AI VISIBILITY** (free core, paid upgrade): lock a 10-prompt set for the user's niche on
    first run (never edited afterward — comparability). Free-path probing = Claude Code's
    WebSearch tool per prompt, scoring whether the user's domain appears in results/answers;
-   report a citation score vs named competitors + the "be the answer" playbook (answer-first
-   pages, directories, consistent naming). LLM API keys upgrade probing to multi-model
-   measurement (ask each model directly, metric-v2 style).
+   report a search-visibility score on the locked prompt set (results-page proxy) vs named
+   competitors + the "be the answer" playbook (answer-first pages, directories, consistent
+   naming). LLM API keys upgrade probing to multi-model measurement (ask each model directly,
+   metric-v2 style).
 5. **SCHEDULE** (decision: skill ASKS the user which mode):
    - **OS-native**: `install-schedule` creates Task Scheduler / launchd / cron for
      `daily-run` — hardened from day one: wake-from-sleep, catch-up on missed starts, run
@@ -72,6 +73,12 @@ seo-god/                      (public repo == the skill folder)
      genericized version of the FastSolve monitor prompt (consume snapshot, act, readout);
      points at the schedule plugin flow. Cloud can't reach their local OpenSEO — the skill
      says so plainly and scopes the routine to repo-visible data.
+
+**ACT** (free) — **the daily loop, and deliberately not a phase.** It carries no entry in
+`phases`, is available on demand once setup is done, and is what the schedule actually runs: read
+today's diff, fix regressions first, chase quick wins, produce answer-first content (40-70w TL;DR
+up top, question-shaped FAQs, numbered steps) for the gaps the data shows. Hard honesty laws (see
+Safety rails).
 
 ## Power-ups (offered contextually, never required)
 
@@ -115,7 +122,8 @@ multi-site management, Windows-service style always-on daemons, SERP scraping of
   a real site in one sitting with zero paid keys.
 - Daily scheduled run produces a snapshot + diff + readout without human input; a missed
   run is visible the next session.
-- AI-visibility report produces a stable citation score against the locked prompt set.
+- AI-visibility report produces a stable search-visibility score on the locked prompt set
+  (results-page proxy) — never reported as a citation rate.
 - No path exists where the skill spends money without an explicit user-set cap.
 
 ## Implementation notes

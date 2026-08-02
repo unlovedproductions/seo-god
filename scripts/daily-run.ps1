@@ -13,11 +13,21 @@
 # Requires: the `claude` CLI on PATH. Nothing else — unlike the sh runner it
 # needs no node, because ConvertFrom-Json reads openseo.url natively.
 #
+# -SkillDir <path> points at THIS skill's folder. A headless session can only
+# read files inside its working directories, and the skill lives outside the
+# project, so without --add-dir on that path `claude -p` can read none of
+# references/*.md and the loop runs on SKILL.md's summary alone. The installer
+# passes the real path into the scheduled task; the default below covers a
+# hand-run. Defaults to $env:CLAUDE_CONFIG_DIR\skills\seo-god, else
+# $env:USERPROFILE\.claude\skills\seo-god.
+#
 # SEO_GOD_DRY_RUN=1 prints what would happen, writes an ok:true "dry-run"
 # marker, and exits 0 — no network call, no Claude Code session.
 #
 # There is no per-run timeout here on purpose: the scheduled task owns the
 # execution time limit (references/schedule.md sets it).
+param([string]$SkillDir = '')
+
 $ErrorActionPreference = 'Stop'
 
 $dry = ($env:SEO_GOD_DRY_RUN -eq '1')
@@ -25,7 +35,22 @@ $root = (Get-Location).Path
 $marker = Join-Path (Join-Path $root '.seo-god') 'last-run.json'
 $script:Step = 'startup'
 $script:Suffix = ''
+$script:SkillNote = ''
 $script:MarkerWritten = $false
+
+if (-not $SkillDir) {
+  if ($env:CLAUDE_CONFIG_DIR) {
+    $SkillDir = Join-Path (Join-Path $env:CLAUDE_CONFIG_DIR 'skills') 'seo-god'
+  } else {
+    $SkillDir = Join-Path (Join-Path (Join-Path $env:USERPROFILE '.claude') 'skills') 'seo-god'
+  }
+}
+
+# The permission grant for an unattended turn. acceptEdits covers Write/Edit and
+# a fixed filesystem-command set and NOTHING else — every curl (the whole OpenSEO
+# MCP surface) and every git call is denied without this. Read-only git only:
+# act.md and audit.md forbid committing, so add/commit/push must never appear.
+$allowedTools = 'Bash(curl:*),Bash(curl.exe:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git check-ignore:*),Bash(git rev-parse:*),WebSearch'
 
 function Write-Marker {
   param([bool]$Ok, [string]$Notes)
@@ -46,6 +71,14 @@ function Write-Marker {
   # sh runner's marker byte for byte.
   [System.IO.File]::WriteAllText($marker, (($payload | ConvertTo-Json -Compress) + "`n"))
   $script:MarkerWritten = $true
+}
+
+# Both notes matter and neither may overwrite the other: an unreachable OpenSEO
+# and unreadable phase files are different degradations of the same run.
+function Get-AllNotes {
+  if ($script:Suffix -and $script:SkillNote) { return "$script:Suffix; $script:SkillNote" }
+  if ($script:Suffix) { return $script:Suffix }
+  return $script:SkillNote
 }
 
 # Any unhandled terminating error — including a non-zero exit from claude — lands here.
@@ -75,10 +108,43 @@ try {
   $openseoUrl = $openseoUrl.Trim() -replace '/$', ''
   if (-not $openseoUrl) { $script:Suffix = 'openseo.url unreadable, probe skipped' }
 
+  # --add-dir only when the directory exists (claude validates it at startup and
+  # a missing path is a hard startup failure) and only when it is not already
+  # inside the project root, where the session can read it anyway.
+  $script:Step = 'resolving skill dir'
+  $addDirArgs = @()
+  $skillAbs = ''
+  if (Test-Path -LiteralPath $SkillDir -PathType Container) {
+    $skillAbs = (Resolve-Path -LiteralPath $SkillDir).Path
+    $insideProject = $false
+    if ($skillAbs -eq $root) { $insideProject = $true }
+    if ($skillAbs.StartsWith(($root + [System.IO.Path]::DirectorySeparatorChar), [System.StringComparison]::OrdinalIgnoreCase)) { $insideProject = $true }
+    if (-not $insideProject) { $addDirArgs = @('--add-dir', $skillAbs) }
+  } else {
+    $script:SkillNote = 'skill dir not found, phase files unreadable'
+    [Console]::Error.WriteLine("seo-god: warn: skill dir not found at $SkillDir - the run cannot read references/*.md")
+  }
+
   if ($dry) {
     Write-Host "DRY: cwd $root"
     $shown = if ($openseoUrl) { $openseoUrl } else { '<unknown>' }
     Write-Host "DRY: would GET $shown/api/health (max 120s, non-fatal)"
+    $shownSkill = if ($skillAbs) { $skillAbs } else { $SkillDir }
+    Write-Host "DRY: skill dir $shownSkill"
+    # The dry run proves the phase files are READABLE, not merely that the CLI
+    # exists: an unreadable act.md is the failure that silently guts the loop.
+    $actPath = Join-Path (Join-Path $shownSkill 'references') 'act.md'
+    if (Test-Path -LiteralPath $actPath -PathType Leaf) {
+      Write-Host 'DRY: references/act.md readable - yes'
+    } else {
+      Write-Host 'DRY: references/act.md readable - NO (the daily loop would run blind)'
+    }
+    if ($addDirArgs.Count -gt 0) {
+      Write-Host "DRY: would pass --add-dir ""$skillAbs"""
+    } else {
+      Write-Host 'DRY: would pass no --add-dir (skill dir missing, or inside the project)'
+    }
+    Write-Host "DRY: would pass --allowedTools $allowedTools"
     Write-Host 'DRY: would run claude -p "/seo-god daily" --permission-mode acceptEdits --max-turns 80'
     if (Get-Command claude -ErrorAction SilentlyContinue) {
       Write-Host 'DRY: claude CLI found'
@@ -86,6 +152,7 @@ try {
       Write-Host 'DRY: claude CLI NOT on PATH - a real run would stop here'
     }
     if ($script:Suffix) { Write-Host "DRY: note - $script:Suffix" }
+    if ($script:SkillNote) { Write-Host "DRY: note - $script:SkillNote" }
     Write-Host "DRY: would write $marker"
     Write-Marker -Ok $true -Notes 'dry-run'
     exit 0
@@ -119,7 +186,7 @@ try {
   }
 
   $script:Step = 'claude -p /seo-god daily'
-  & claude -p '/seo-god daily' --permission-mode acceptEdits --max-turns 80
+  & claude -p '/seo-god daily' --permission-mode acceptEdits --allowedTools $allowedTools @addDirArgs --max-turns 80
   if ($null -eq $LASTEXITCODE) {
     # `claude` resolved to something that is not a native process — a function,
     # alias or .ps1 shim — so there is no exit code to trust. Never read that as
@@ -131,8 +198,9 @@ try {
   # Native exit codes only raise an error on pwsh 7.4+, so check explicitly.
   if ($LASTEXITCODE -ne 0) { throw "claude exited with code $LASTEXITCODE" }
 
-  if ($script:Suffix) {
-    Write-Marker -Ok $true -Notes "completed ($script:Suffix)"
+  $allNotes = Get-AllNotes
+  if ($allNotes) {
+    Write-Marker -Ok $true -Notes "completed ($allNotes)"
   } else {
     Write-Marker -Ok $true -Notes 'completed'
   }

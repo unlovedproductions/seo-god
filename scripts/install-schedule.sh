@@ -43,6 +43,15 @@ PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
 [ -f "$PROJECT_DIR/seo-god.json" ] ||
   die "no seo-god.json in $PROJECT_DIR - pass the project root as the second argument, or run /seo-god there first"
 
+# The skill root, resolved from THIS installer's own location. The runner is copied into the
+# project and so cannot derive it; a headless `claude -p` can only read files inside its working
+# directories, so without this path passed through as --skill-dir the scheduled run can read none
+# of references/*.md. The absolute path lives in the machine-local scheduler entry, never in the
+# committed copy of the runner.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SRC="$SCRIPT_DIR/daily-run.sh"
+SKILL_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # --- 2. Pick the scheduler, and refuse BEFORE touching the project -------------------------
 # Every refusal belongs here: an unsupported OS or a missing tool must not leave a copied
 # runner and a new .seo-god directory behind in someone's repository.
@@ -65,6 +74,11 @@ case "$OS" in
       *"'"*) die "the project path contains a single quote, which cannot be quoted safely inside a crontab line - move the project, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR" ;;
       *%*)   die "the project path contains '%', which cron reads as a newline - move the project, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR" ;;
     esac
+    # The skill path goes into the same single-quoted line and needs the same two guarantees.
+    case "$SKILL_ROOT" in
+      *"'"*) die "the skill path ($SKILL_ROOT) contains a single quote, which cannot be quoted safely inside a crontab line - move the skill folder, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR and --skill-dir set by hand" ;;
+      *%*)   die "the skill path ($SKILL_ROOT) contains '%', which cron reads as a newline - move the skill folder, or schedule scripts/daily-run.sh from a systemd timer with WorkingDirectory=$PROJECT_DIR and --skill-dir set by hand" ;;
+    esac
     ;;
   MINGW* | MSYS* | CYGWIN*)
     die "this is Windows - use install-schedule.ps1 instead (a POSIX shell cannot register a Task Scheduler entry)"
@@ -75,11 +89,18 @@ case "$OS" in
 esac
 
 # --- 3. Copy the runner into the project ---------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SRC="$SCRIPT_DIR/daily-run.sh"
 [ -f "$SRC" ] ||
   die "daily-run.sh is not next to this installer ($SCRIPT_DIR) - run the copy that ships in the skill's scripts folder"
 DEST="$PROJECT_DIR/scripts/daily-run.sh"
+
+# Refuse BEFORE touching the project. scripts/daily-run.sh is not an outlandish name for a file
+# the user already has, and a silent `cp` over it is the one thing in this installer that would
+# destroy their work. Only a file carrying the shipped runner's own header marker may be
+# overwritten; the marker is on line 2 of daily-run.sh.
+if [ -e "$DEST" ] && ! grep -q 'SEO-GOD daily runner' "$DEST" 2>/dev/null; then
+  die "$DEST already exists and is not the seo-god runner - move or rename it, then re-run. Nothing was scheduled."
+fi
+
 mkdir -p "$PROJECT_DIR/scripts"
 # .seo-god has to exist BEFORE the first scheduled run: cron's >> redirection and launchd's
 # StandardOutPath both open a file inside it, neither creates a missing directory, and the
@@ -107,8 +128,10 @@ else
 fi
 
 report_tail() {
+  echo "  skill dir:   $SKILL_ROOT"
+  echo "               passed as --skill-dir, so the scheduled run can read the phase files in references/"
   echo "  marker:      $PROJECT_DIR/.seo-god/last-run.json - /seo-god warns you when it goes 48h stale"
-  echo "  dry run it:  (cd '$PROJECT_DIR' && SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh)   # starts no Claude session"
+  echo "  dry run it:  (cd '$PROJECT_DIR' && SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh --skill-dir '$SKILL_ROOT')   # starts no Claude session"
 }
 
 # --- 4. Install the entry ------------------------------------------------------------------
@@ -120,6 +143,7 @@ case "$TARGET" in
     # A path can legally contain & or <, which would produce a plist launchd refuses to read.
     xml_escape() { printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'; }
     P="$(xml_escape "$PROJECT_DIR")"
+    SK="$(xml_escape "$SKILL_ROOT")"
     # launchd agents start with a minimal PATH that almost never contains the claude CLI, so
     # the PATH you install with is baked in. Re-run this installer if claude ever moves.
     PATH_VALUE="$(xml_escape "$PATH")"
@@ -141,6 +165,8 @@ case "$TARGET" in
   <array>
     <string>/bin/bash</string>
     <string>$P/scripts/daily-run.sh</string>
+    <string>--skill-dir</string>
+    <string>$SK</string>
   </array>
   <key>WorkingDirectory</key>
   <string>$P</string>
@@ -193,7 +219,7 @@ PLIST_EOF
     # The project path is SINGLE-QUOTED: cron hands the line to /bin/sh, so an unquoted path
     # containing a space or an & would run `cd /home/me` and then treat the rest as separate
     # commands - a schedule that is registered, reported as installed, and permanently broken.
-    LINE="$MIN $HOUR * * * cd '$PROJECT_DIR' && flock -n .seo-god/run.lock bash scripts/daily-run.sh >> .seo-god/cron.log 2>&1"
+    LINE="$MIN $HOUR * * * cd '$PROJECT_DIR' && flock -n .seo-god/run.lock bash scripts/daily-run.sh --skill-dir '$SKILL_ROOT' >> .seo-god/cron.log 2>&1"
     # Our own line matches BOTH markers - the lock file and the runner path. A line carrying
     # only one of them belongs to the user and is never touched.
     MINE='\.seo-god/run\.lock.*scripts/daily-run\.sh'

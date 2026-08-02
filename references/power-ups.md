@@ -756,7 +756,7 @@ Test the send on its own instead — same read-from-file pattern, no values inli
 ```
 # macOS, Linux, Git Bash — from the project root; the helper is section 0.3's
 sg_secret() { sed -n "s/^$1=//p" .seo-god/secrets.env 2>/dev/null | tail -n1; }
-curl -fsS -m 20 -X POST "https://api.telegram.org/bot$(sg_secret TELEGRAM_BOT_TOKEN)/sendMessage" --data-urlencode "chat_id=$(sg_secret TELEGRAM_CHAT_ID)" --data-urlencode "text=seo-god test"
+curl -sS -m 20 -X POST "https://api.telegram.org/bot$(sg_secret TELEGRAM_BOT_TOKEN)/sendMessage" --data-urlencode "chat_id=$(sg_secret TELEGRAM_CHAT_ID)" --data-urlencode "text=seo-god test"
 ```
 
 ```

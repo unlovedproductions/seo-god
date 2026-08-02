@@ -51,6 +51,12 @@ Same test as `references/act.md` uses:
   defined no-question path.
 - Cannot tell → treat the run as **unattended**.
 
+**A `claude -p` invocation is never attended, whichever step routed you.** Attended means an
+interactive session with a human who can answer. `claude -p "/seo-god ai-visibility"` arrives
+through SKILL.md step 4 and is still unattended — `references/schedule.md` section 5 documents
+exactly that command as a monthly headless job, and the section 2 lock conversation must never open
+with nobody there to answer it.
+
 **Unattended, when section 1 reads `ai_prompts_locked` and finds it absent or empty, there is nothing
 to measure.** Skip the measurement
 entirely: write no state, leave any existing snapshot's `ai_visibility` block exactly as it is
@@ -165,6 +171,13 @@ happens next:
 Take their edits, show the corrected list back, and lock only once they have confirmed it. Aim for
 exactly ten — ten is a readable denominator — but whatever they settle on is the set, and its size
 never changes again either.
+
+**If the final set is exactly ten, it must stay five branded-adjacent and five unbranded.** Section
+5's split is recovered from position — the first five, then the last five — so a ten-item set that
+is 6+4 would be reported as 5+5 and be confidently wrong for the life of the baseline. Re-balance it
+with the user before locking, and say the consequence *before* they settle: a ten-item set that is
+not five-and-five loses the split line permanently, and only the total gets reported. Any other
+length is fine and takes the total-only branch by design.
 
 Then write `seo-god.json` in one read-modify-write, preserving every key you do not recognise and
 keeping `version: 1`:
@@ -415,7 +428,9 @@ day.
 - **Mandated lines win.** A "not measured" line, the split line, the reset marker, a failed-search
   line, the parse-error filename, "playbook progress not verified", "this replaced an earlier
   measurement today", "no snapshot was written and why" — every one of these is a fact a reader would
-  otherwise fill in with an assumption. None of them is ever dropped to make the cap.
+  otherwise fill in with an assumption. That list is illustrative, not exhaustive: the authoritative
+  set is the "what the readout must say" column of section 8's degrade table, plus every line this
+  section marks mandated. None of them is ever dropped to make the cap.
 - **Merge before you drop.** Fold the conditional lines into one another first — several failed
   prompts on one line, the truncation and subdomain notes on one line — and drop genuinely optional
   detail (the competitor list, the absent-prompt examples) next.
@@ -437,7 +452,10 @@ Playbook: 4 items, next = answer-first page for "how do I chase an unpaid invoic
 ```
 
 **The split line is not optional whenever it is recoverable** — it is never dropped for brevity, and
-the only thing that removes it is the total-only branch below. The two halves measure different
+the only thing that removes it is the total-only branch below. Write it with the literal `Split: `
+prefix, verbatim and greppable, exactly as section 2.4 treats the reset marker: section 6 recovers
+the earlier halves by finding that prefix and nothing else, so a reworded line silently costs the
+split trend. The two halves measure different
 things: the branded-adjacent five mostly confirm that people who already know the name can find it,
 and the unbranded five are the ones that bring strangers. A total that climbs on the branded half
 alone looks like progress and is not, so report both halves, and carry the unbranded half into the
@@ -447,10 +465,10 @@ trend line whenever the comparison day's split was recorded too (trend rule 6).
 `ai_prompts_locked`, because sections 2.3 and 2.4 store the branded-adjacent five first and the
 unbranded five second. So:
 
-- `ai_prompts_locked` has **exactly ten entries** → the first five are branded-adjacent, the last five
-  are unbranded. Claim the split.
+- `ai_prompts_locked` has **exactly ten entries, locked as five-and-five per section 2.3** → the
+  first five are branded-adjacent, the last five are unbranded. Claim the split.
 - **Any other length** → take the total-only branch. Section 2.3 permits a user to settle on a set
-  that is not five-and-five, and there is no position rule for such a set. Report the total, and say
+  that is not ten, and there is no position rule for such a set. Report the total, and say
   in the readout that the split is not recoverable because the locked set is not a ten-item 5+5 set.
 
 There is no third option. **Never infer a prompt's half from its text** — not from whether it contains
@@ -474,9 +492,8 @@ The trend line, built honestly:
    not verified.
 6. **The earlier split comes from one place: the `Split:` line of the readout dated the same day as
    the comparison snapshot.** The snapshot carries four keys and none of them is a split, so that
-   readout line is the only record of the old halves — and reading it is the third and last
-   authorized read of the readouts directory in this file, alongside the reset marker (step 2) and the
-   playbook scan (section 6). No `Split:` line there — the total-only branch ran that day, or the file
+   readout line is the only record of the old halves, and it is the only source this file ever
+   accepts for the earlier split. No `Split:` line there — the total-only branch ran that day, or the file
    is gone — → **report the total trend only.** Never reconstruct the earlier split by re-scoring the
    old prompts, by assuming the halves moved together, or by subtracting today's branded figure from
    an old total. A split trend without both recorded halves is an invention, and it would be an

@@ -8,8 +8,15 @@ no human in the loop, which is the only honest way to test a property that only 
 is watching.
 
 The deviations below are the point of this document. Where an instruction and reality disagree, the
-instruction is quoted verbatim and what actually happened is recorded next to it. Nothing in the
-skill was edited in response; every item lands in the v1.1 backlog at the end.
+instruction is quoted verbatim and what actually happened is recorded next to it.
+
+> [!NOTE]
+> **This is a point-in-time record, not a description of the current skill.** Every measurement,
+> quotation and line number below was taken against commit `b61c42e`, and nothing was edited in
+> response *at the time*. The findings were then triaged in a whole-branch review and a single fix
+> wave landed on top. Each finding therefore carries its status inline — **FIXED in the final review
+> wave** or **OPEN — v1.1** — and the backlog at the end lists only what is still open. Read a
+> finding's marker before you read its present tense.
 
 ## Environment
 
@@ -168,6 +175,8 @@ were wrong:
 
 ### F1 — CRITICAL. An unattended run cannot read the phase files at all
 
+**Status: FIXED in the final review wave.**
+
 `SKILL.md`:
 
 > Phase instructions live in `references/`. Load one at a time; never preload them all.
@@ -205,6 +214,8 @@ list.
 
 ### F2 — CRITICAL. An unattended run cannot make any network or git call either
 
+**Status: FIXED in the final review wave.**
+
 `references/act.md` §1.3:
 
 > **Missing, and OpenSEO answers** → capture it now. Ask the container first: a single request to
@@ -228,14 +239,16 @@ git -C "<project>" status --porcelain, git -C "<project>" diff --stat
 never capture a snapshot, and never read `git status` — which is also the input to the degrade
 table's "a file to edit has uncommitted changes" row.
 
-Sharpest detail: this machine's own `~/.claude/settings.json` sets `defaultMode:
-bypassPermissions`. The shipped `--permission-mode acceptEdits` flag **overrode the user's more
-permissive default** and created the wall. The same user running `/seo-god act` interactively sees
+Sharpest detail: this machine's own `~/.claude/settings.json` carries a **more permissive default
+mode** than the runner asks for, and the shipped `--permission-mode acceptEdits` flag **overrode
+that default** and created the wall. The same user running `/seo-god act` interactively sees
 everything work; their scheduled run cannot.
 
 F1 and F2 are independent walls. Fixing only F1 would still leave the loop unable to crawl.
 
 ### F3 — HIGH. What the daily runs actually produced
+
+**Status: OPEN — v1.1.**
 
 Direct consequences of F1. Recorded separately because each is independently checkable.
 
@@ -254,6 +267,8 @@ The zero-question property itself **passed**: three headless runs, `is_error: fa
 they just were not the runs `act.md` specifies.
 
 ### F4 — CRITICAL for anyone whose site is not already public. OpenSEO refuses non-public targets, and neither phase file says so
+
+**Status: FIXED in the final review wave.**
 
 `references/setup.md` §2 is the only gate on the URL:
 
@@ -293,6 +308,8 @@ For the local case it does not, and it fails into a loop: the project domain can
 sends the agent back to a setup step that will refuse the same domain again.
 
 ### F5 — HIGH. Nothing checks that the thing answering the port is the container the skill started
+
+**Status: FIXED in the final review wave.**
 
 **The severity lives in an unconditional gap, reachable by following the file exactly as written.**
 Setup never verifies ownership of the port it polls. Relocate to 3005 because §4 told you to, then
@@ -339,8 +356,8 @@ A second identical `up -d` — issued *before* rewriting the port — reports `S
 and leaves the container running with an empty port binding: running, and unreachable from the host.
 That then feeds the same 3001 poll described above. This one requires deviating from §4's
 rewrite-then-retry order, so it is a lesser leg than the ownership gap; it is recorded because
-retrying a transient-looking Docker failure before editing anything is an ordinary reflex and §4
-never says the retry must come after the rewrite.
+retrying a transient-looking Docker failure before editing anything is an ordinary reflex, and §4
+gives the order — rewrite, then retry — but never warns that a bare retry succeeds misleadingly.
 
 One provenance note on that evidence: the two exit codes and the transcript above come from an
 `alpine` probe container in the throwaway project, **not** from the `open-seo` image — it was chosen
@@ -352,9 +369,11 @@ code was ever mis-measured.
 
 ### F6 — MEDIUM. After relocating the port, every literal command in the file still says 3001
 
+**Status: FIXED in the final review wave.**
+
 §3 carries the relocation in one sentence — "use the new port in every command below and in
-`openseo.url`" — while §5's poll block, §6's three curl blocks, §6's dashboard-fallback URL and §8's
-three restart/stop commands all still print `3001`. On exactly the machine where relocation is
+`openseo.url`" — while §5's poll block, §6's three curl blocks, §6's `/p/<id>` confirmation URL and
+§6's dashboard-fallback URL all still print `3001`. On exactly the machine where relocation is
 needed, something else owns 3001, so copying any of those blocks verbatim targets the wrong install.
 This compounds F5 rather than being independent of it.
 
@@ -364,6 +383,8 @@ Related, in `SKILL.md`: the documented default state shape seeds
 application's HTML. The seed value contradicts the rule that exists to prevent it.
 
 ### F7 — MEDIUM. Nothing tells you to check whether Lighthouse ran
+
+**Status: FIXED in the final review wave.**
 
 On crawl B, `get_audit_status` returned `lighthouseTotal: 12, lighthouseCompleted: 0,
 lighthouseFailed: 12`. All twelve Lighthouse runs failed, so triage class 5 had zero data.
@@ -378,6 +399,8 @@ line for performance-not-assessed. The file states the equivalent rule for block
 performance issues found" and "performance was never measured" are indistinguishable in the summary.
 
 ### F8 — MEDIUM. A crawl that fetched nothing still reports `status: "completed"`
+
+**Status: FIXED in the final review wave.**
 
 Crawl A — the first against a reachable public URL — returned an `auditId`, and `get_audit_status`
 reported:
@@ -399,6 +422,8 @@ warm produced 7 pages and the full issue set.
 
 ### F9 — MEDIUM. `build_cmd: "none"` gives up on verification when a free one is available
 
+**Status: OPEN — v1.1.**
+
 `audit.md` §2 handles the no-toolchain case honestly:
 
 > Only if there is truly nothing, store `build_cmd: "none"`. Then there is no gate, so you do not get
@@ -413,6 +438,8 @@ tag added to consolidate B's duplicates). Neither `audit.md` §2 nor `act.md`'s 
 
 ### F10 — LOW. Fixing a broken link makes the 404 disappear from the report without being fixed
 
+**Status: OPEN — v1.1.**
+
 After the only internal link to `/missing.html` was removed, the next crawl never discovered that
 URL, so the `broken-page` issue vanished from `summary` — while the 404 is still live and still on
 the punch list awaiting a host-level 301. `measure.md` §6's regression diff, which `act.md` §1.4
@@ -420,6 +447,8 @@ consumes, would read that as an issue resolved. Nothing in `audit.md` §7 or `ac
 punch-list item can silently stop appearing in later crawls.
 
 ### F11 — LOW. "One issue type per batch" has no answer when one edit clears two types
+
+**Status: OPEN — v1.1.**
 
 `audit.md` §6, fix loop step 1:
 
@@ -431,42 +460,44 @@ snapshots and "edits" a file for a change already made.
 
 ### F12 — LOW. Local vs UTC date is specified in one file and not the other
 
+**Status: FIXED in the final review wave.**
+
 `act.md` §1.2 is explicit: "`<YYYY-MM-DD>` is today's **local** date". `audit.md` §7's punch-list
 path `dist/seo/audit-punchlist-<YYYY-MM-DD>.md` and §6's run stamp `YYYY-MM-DD-HHMM` say neither.
 This machine is UTC-7, so for seven hours a day a punch list stamped UTC and a readout stamped local
 carry different dates for the same run, and `.seo-god/backup/<run-stamp>/` — whose whole purpose is
 that a later run must not collide with this one — inherits the ambiguity.
 
-## v1.1 backlog
+## What this report changed, and what is still open
 
-Ordered by what would break a real user first.
+**Closed by the final review wave** — F1, F2, F4, F5, F6, F7, F8 and F12. In summary: the runners
+now take a `--skill-dir` / `-SkillDir` argument that both installers write into the scheduler entry
+and that becomes `--add-dir`, so the unattended run can read its phase files, and the dry run proves
+`references/act.md` is readable rather than only that the CLI is on PATH (F1); `SKILL.md` declares
+an `allowed-tools` grant for `curl` and read-only `git`, mirrored into `--allowedTools` in both
+runners, with the permission-override stated out loud and a consented user-scope allow entry for the
+build gate (F2); `setup.md` §2 validates public reachability at the question and `audit.md` /
+`measure.md` §1 break the loop instead of routing back into a setup step that refuses the same host,
+with `CRAWL_TARGET_BLOCKED` decoded (F4); §5 derives the host binding from
+`docker compose -p seo-god … port open-seo 3001` and treats an empty binding as a hard failure, which
+is also what makes the answering instance provably ours (F5); every remaining literal `3001` in §5
+and §6 is parameterised and `SKILL.md`'s seed is `127.0.0.1` (F6); and `lighthouseFailed > 0`,
+zero-page and all-`fetchClass: "error"` crawls are now reported as missing data — with no snapshot
+written — in `audit.md`, `measure.md` and `act.md`'s degrade table (F7, F8), with the punch-list and
+run-stamp dates pinned to local (F12).
 
-1. **Make the unattended path able to read its own phase files.** Ship the scheduled invocation with
-   the skill directory readable (an `--add-dir`, a settings entry created by `schedule.md`, or
-   inlining the daily loop into `SKILL.md`), and have `schedule.md`'s dry run actually prove a phase
-   file is reachable rather than only that the CLI is on PATH. (F1)
-2. **Give the scheduled run the permissions its own instructions require**, or state plainly in
-   `schedule.md` that a daily run under `acceptEdits` cannot reach OpenSEO and will always degrade.
-   Note explicitly that the flag overrides a more permissive user default. (F2)
-3. **`setup.md` §2 must state the target has to resolve publicly to a public IP**, name
-   `CRAWL_TARGET_BLOCKED` and the `Enter a valid domain, like acme.com.` rejection, and offer the
-   tunnel workaround for local sites — or refuse local URLs at the question instead of three steps
-   later. Fix `audit.md` §1's resolution rule so it cannot loop back into a setup step that will
-   refuse the same domain. (F4)
-4. **Add an ownership check after the first 200** — confirm the responder is the container this
-   project just started (compare `docker compose -p … ps` port bindings against the polled port)
-   before registering anything. This is the unconditional half of F5 and the reason it is HIGH.
-   Secondarily, say in §4 that the retry comes only *after* the rewrite, since a bare retry exits 0
-   and produces a running container with no host binding. (F5)
-5. **Parameterise the port** through §5, §6 and §8 instead of relocating in prose, and change
-   `SKILL.md`'s default `openseo.url` seed off `localhost`. (F6)
-6. **Treat `lighthouseFailed > 0` and `fetchClass: "error"` as missing data**, with the same words
-   the file already uses for blocked pages, and give §8's summary a not-assessed line. (F7, F8)
-7. **Offer the re-crawl as the gate when `build_cmd` is `"none"`.** (F9)
-8. **Warn that punch-list items can vanish from later crawls** without being fixed, and say how the
-   diff should treat that. (F10)
-9. **Say what to do when one edit clears two issue types**, and pin local-vs-UTC dates in `audit.md`
-   the way `act.md` already does. (F11, F12)
+**Still open — the v1.1 backlog.** Ordered by what would break a real user first. Each needs a
+design decision rather than a clause, which is why none of them landed in the wave:
+
+1. **Offer the re-crawl as the gate when `build_cmd` is `"none"`.** A free verification exists and
+   the file gives up on it. (F9)
+2. **Warn that punch-list items can vanish from later crawls** without being fixed, and say how the
+   diff should treat that — it needs a diff-semantics decision. (F10)
+3. **Say what to do when one edit clears two issue types.** Cosmetic inefficiency today; no wrong
+   output. (F11)
+4. **The degraded-run behaviour recorded in F3** — what the daily runs actually produced under the
+   F1/F2 walls — should be re-measured end to end now those walls are gone. This report's stage 3
+   verdict predates the fix. (F3)
 
 ## Teardown verification
 

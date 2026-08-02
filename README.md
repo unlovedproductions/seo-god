@@ -1,6 +1,6 @@
 <p align="center">
   <img src="./assets/readme/hero.svg" width="100%"
-       alt="SEO-GOD — a Claude Code skill. Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own phase menu: setup, audit and measure done; ai_visibility and schedule pending; act on demand.">
+       alt="SEO-GOD — a Claude Code skill. Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own menu: setup, audit and measure done; ai_visibility and schedule pending; act on demand; power-ups optional.">
 </p>
 
 <p align="center">
@@ -25,12 +25,13 @@ modes it guards against are the ones that survived production.
 
 ## What it does
 
-Five phases. Claude runs exactly one per invocation, writes the result into `seo-god.json` in your
-project, and picks up from there next time you ask.
+Five phases, one per invocation. Phase results land in `seo-god.json` in your project; the daily loop
+(`act`) is not a phase and writes no phase state — it leaves snapshots and readouts instead. Either
+way, the next run knows where you stopped.
 
 | | Phase | What happens |
 | --- | --- | --- |
-| 1 | [**audit**](references/audit.md) | Crawls your sitemap with the local OpenSEO container, triages every issue by impact, then fixes the ones that live in your repo — titles, metas, broken links, thin content — with your own build and typecheck as the gate. |
+| 1 | [**audit**](references/audit.md) | Crawls your site with the local OpenSEO container, triages every issue by impact, then fixes the ones that live in your repo — titles, metas, broken links, thin content — with your own build and typecheck as the gate. |
 | 2 | [**measure**](references/measure.md) | Walks you through connecting Google Search Console, writes a dated snapshot into your repo, and diffs it against the last one. The review order is fixed: regressions, then quick wins at positions 4-15, then new queries. |
 | 3 | [**act**](references/act.md) | The daily loop. Fix what regressed, improve two or three pages that already almost rank, add at most one new page the data actually asked for, leave a dated readout behind. |
 | 4 | [**ai_visibility**](references/ai-visibility.md) | Locks ten prompts for your niche on the first run and never edits them again, then measures how often your domain shows up for them. Read the note below before you quote that number anywhere. |
@@ -105,7 +106,7 @@ without them. Details in [references/power-ups.md](references/power-ups.md).
 
 | Power-up | | What it adds |
 | --- | --- | --- |
-| **DataForSEO** | optional | Real search volume, keyword difficulty and backlink summaries. Budget-capped before the first call by design: a `$0.50` per-run cap, a `$2.00` balance floor that disables the paid plane outright, and a spend line in every readout. |
+| **DataForSEO** | optional | Real search volume, keyword difficulty and backlink summaries. Budget-capped before the first call by design: a `$0.50` default per-run cap (env-tunable), a `$2.00` balance floor that disables the paid plane outright, and a spend line in every readout. |
 | **LLM API keys** | optional | Upgrades AI-visibility measurement from a search-results proxy to direct model probing — the same locked prompts, asked to the models themselves. |
 | **Telegram digest** | optional | The daily run ends with one plain-text message on your phone. Outbound only, and it fires only on runs that complete: no message means the run did not finish. |
 
@@ -117,7 +118,7 @@ conflict with one is required to stop and say so.
 - **Secrets stay in a gitignored env file** — `.seo-god/secrets.env`, gitignored at creation, never printed, never committed.
 - **Missing data is reported as missing**, never zero-filled and never extrapolated. Partial coverage is labelled partial.
 - **No bought links, no fake reviews, no auto-posting** to social or forums, and no fabricated claims on pages it writes. Directory submissions stay owner-driven.
-- **Any paid API path is budget-capped before the first call** — per-run cap, balance floor, spend ledger. No code path spends money without a cap you set.
+- **Any paid API path is budget-capped before the first call** — per-run cap, balance floor, spend ledger. No code path spends money with no cap in force, and raising the cap is yours alone to do.
 - **No SERP scraping of Google**, anywhere in the skill, with or without a key.
 - **Scheduled runs ship with failure visibility.** If no run marker appears for 48 hours, your next `/seo-god` session opens with that warning before anything else.
 

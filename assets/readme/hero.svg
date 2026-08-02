@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420"
      role="img" aria-labelledby="heroTitle heroDesc">
   <title id="heroTitle">SEO-GOD — a Claude Code skill</title>
-  <desc id="heroDesc">Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own phase menu: setup, audit and measure done; ai_visibility and schedule pending; act available on demand.</desc>
+  <desc id="heroDesc">Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own menu: setup, audit and measure done; ai_visibility and schedule pending; act available on demand; power-ups optional.</desc>
 
   <rect x="0.75" y="0.75" width="1198.5" height="418.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
 
@@ -21,9 +21,9 @@
       <text x="64" y="288">runs the whole loop again tomorrow.</text>
     </g>
 
-    <line x1="64" y1="320" x2="554" y2="320" stroke="#232B36" stroke-width="1.5"/>
+    <line x1="64" y1="320" x2="552" y2="320" stroke="#232B36" stroke-width="1.5"/>
     <text x="64" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-          font-size="19" fill="#6E7B8A">MIT · Windows · macOS · Linux · no paid keys</text>
+          font-size="19" fill="#6E7B8A">MIT · Windows, macOS, Linux · no paid keys</text>
   </g>
 
   <!-- the skill's own first screen -->
@@ -36,35 +36,40 @@
     </g>
 
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">
-      <text x="644" y="130" fill="#7EE787">&gt;</text>
-      <text x="668" y="130" fill="#E6EDF3">/seo-god</text>
-      <text x="644" y="164" fill="#C9D4E0">SEO-GOD — https://your-site.com</text>
+      <text x="644" y="126" fill="#7EE787">&gt;</text>
+      <text x="668" y="126" fill="#E6EDF3">/seo-god</text>
+      <text x="644" y="158" fill="#C9D4E0">SEO-GOD — https://your-site.com</text>
     </g>
 
+    <!-- the five phases carry state; act and power-ups are always-available, so they take a dash -->
     <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20">
-      <rect x="648" y="190" width="9" height="9" fill="#3FB950"/>
-      <text x="676" y="200" fill="#C9D4E0">setup</text>
-      <text x="864" y="200" fill="#7EE787">done</text>
+      <rect x="648" y="182" width="9" height="9" fill="#3FB950"/>
+      <text x="676" y="192" fill="#C9D4E0">setup</text>
+      <text x="864" y="192" fill="#7EE787">done</text>
 
-      <rect x="648" y="220" width="9" height="9" fill="#3FB950"/>
-      <text x="676" y="230" fill="#C9D4E0">audit</text>
-      <text x="864" y="230" fill="#7EE787">done</text>
+      <rect x="648" y="209" width="9" height="9" fill="#3FB950"/>
+      <text x="676" y="219" fill="#C9D4E0">audit</text>
+      <text x="864" y="219" fill="#7EE787">done</text>
 
-      <rect x="648" y="250" width="9" height="9" fill="#3FB950"/>
-      <text x="676" y="260" fill="#C9D4E0">measure</text>
-      <text x="864" y="260" fill="#7EE787">done</text>
+      <rect x="648" y="236" width="9" height="9" fill="#3FB950"/>
+      <text x="676" y="246" fill="#C9D4E0">measure</text>
+      <text x="864" y="246" fill="#7EE787">done</text>
 
-      <rect x="648.75" y="280.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
-      <text x="676" y="290" fill="#C9D4E0">ai_visibility</text>
-      <text x="864" y="290" fill="#8A97A6">pending</text>
+      <rect x="648.75" y="263.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <text x="676" y="273" fill="#C9D4E0">ai_visibility</text>
+      <text x="864" y="273" fill="#8A97A6">pending</text>
 
-      <rect x="648.75" y="310.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
-      <text x="676" y="320" fill="#C9D4E0">schedule</text>
-      <text x="864" y="320" fill="#8A97A6">pending</text>
+      <rect x="648.75" y="290.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <text x="676" y="300" fill="#C9D4E0">schedule</text>
+      <text x="864" y="300" fill="#8A97A6">pending</text>
 
-      <rect x="648.75" y="340.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
-      <text x="676" y="350" fill="#C9D4E0">act</text>
-      <text x="864" y="350" fill="#8A97A6">on demand</text>
+      <rect x="648" y="321" width="9" height="2" fill="#4A5563"/>
+      <text x="676" y="327" fill="#C9D4E0">act</text>
+      <text x="864" y="327" fill="#8A97A6">on demand</text>
+
+      <rect x="648" y="348" width="9" height="2" fill="#4A5563"/>
+      <text x="676" y="354" fill="#C9D4E0">power-ups</text>
+      <text x="864" y="354" fill="#8A97A6">optional</text>
     </g>
   </g>
 </svg>

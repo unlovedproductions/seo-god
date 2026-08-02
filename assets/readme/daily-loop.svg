@@ -29,8 +29,8 @@
     <!-- 02 regressions, always first -->
     <rect x="283" y="226" width="196" height="92" rx="10" fill="#131A22" stroke="#8A6D1F" stroke-width="1.5"/>
     <text x="301" y="252" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#566270">02</text>
-    <rect x="405" y="234" width="56" height="22" rx="6" fill="#3A2E12" stroke="#8A6D1F" stroke-width="1"/>
-    <text x="433" y="250" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="15" fill="#E3B341">first</text>
+    <rect x="389" y="232" width="72" height="26" rx="6" fill="#3A2E12" stroke="#8A6D1F" stroke-width="1"/>
+    <text x="425" y="251" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#E3B341">first</text>
     <text x="301" y="283" font-size="22" font-weight="600" fill="#E6EDF3">regressions</text>
     <text x="301" y="307" font-size="18" fill="#E3B341">fix what fell</text>
 

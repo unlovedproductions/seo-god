@@ -76,7 +76,7 @@ circumstantial evidence rather than a recording. Note the mismatch it exposes: s
 method says to pass the model powering the current session, and the orchestrating session was
 `claude-opus-5`. It was not passed, so these numbers describe triggering under `claude-fable-5`.
 Triggering is a model-level judgement, so a different model can plausibly score differently — treat
-the table in §2 as measured on that model, not as model-independent.
+the table in §2 as measured on `claude-fable-5`, not as model-independent.
 
 **On the timeout.** 30s is not survivable here: a Windows `claude` CLI cold start plus a full model
 turn regularly exceeds it, so a 30s ceiling would have manufactured non-triggers wholesale. 150s

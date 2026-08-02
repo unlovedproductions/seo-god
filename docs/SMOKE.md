@@ -175,7 +175,7 @@ were wrong:
 
 ### F1 — CRITICAL. An unattended run cannot read the phase files at all
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 `SKILL.md`:
 
@@ -214,7 +214,7 @@ list.
 
 ### F2 — CRITICAL. An unattended run cannot make any network or git call either
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 `references/act.md` §1.3:
 
@@ -268,7 +268,7 @@ they just were not the runs `act.md` specifies.
 
 ### F4 — CRITICAL for anyone whose site is not already public. OpenSEO refuses non-public targets, and neither phase file says so
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 `references/setup.md` §2 is the only gate on the URL:
 
@@ -309,7 +309,7 @@ sends the agent back to a setup step that will refuse the same domain again.
 
 ### F5 — HIGH. Nothing checks that the thing answering the port is the container the skill started
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 **The severity lives in an unconditional gap, reachable by following the file exactly as written.**
 Setup never verifies ownership of the port it polls. Relocate to 3005 because §4 told you to, then
@@ -369,7 +369,7 @@ code was ever mis-measured.
 
 ### F6 — MEDIUM. After relocating the port, every literal command in the file still says 3001
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 §3 carries the relocation in one sentence — "use the new port in every command below and in
 `openseo.url`" — while §5's poll block, §6's three curl blocks, §6's `/p/<id>` confirmation URL and
@@ -384,7 +384,7 @@ application's HTML. The seed value contradicts the rule that exists to prevent i
 
 ### F7 — MEDIUM. Nothing tells you to check whether Lighthouse ran
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 On crawl B, `get_audit_status` returned `lighthouseTotal: 12, lighthouseCompleted: 0,
 lighthouseFailed: 12`. All twelve Lighthouse runs failed, so triage class 5 had zero data.
@@ -400,7 +400,7 @@ performance issues found" and "performance was never measured" are indistinguish
 
 ### F8 — MEDIUM. A crawl that fetched nothing still reports `status: "completed"`
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 Crawl A — the first against a reachable public URL — returned an `auditId`, and `get_audit_status`
 reported:
@@ -460,7 +460,7 @@ snapshots and "edits" a file for a change already made.
 
 ### F12 — LOW. Local vs UTC date is specified in one file and not the other
 
-**Status: FIXED in the final review wave.**
+**Status: FIXED in 6cdb52c (final review wave).**
 
 `act.md` §1.2 is explicit: "`<YYYY-MM-DD>` is today's **local** date". `audit.md` §7's punch-list
 path `dist/seo/audit-punchlist-<YYYY-MM-DD>.md` and §6's run stamp `YYYY-MM-DD-HHMM` say neither.

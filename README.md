@@ -67,19 +67,16 @@ dated readout saying what it did and why.
 
 ## Install
 
-<!-- PUBLISH BLOCKER: replace <owner> in BOTH clone commands below with the real GitHub
-     owner before this repo goes public. Left as-is, the install instruction fails on day one. -->
-
 **macOS / Linux**
 
 ```bash
-git clone https://github.com/<owner>/seo-god ~/.claude/skills/seo-god
+git clone https://github.com/AKCodez/seo-god ~/.claude/skills/seo-god
 ```
 
 **Windows** — the same destination, `%USERPROFILE%\.claude\skills\seo-god`:
 
 ```powershell
-git clone https://github.com/<owner>/seo-god "$env:USERPROFILE\.claude\skills\seo-god"
+git clone https://github.com/AKCodez/seo-god "$env:USERPROFILE\.claude\skills\seo-god"
 ```
 
 Then open Claude Code in the repository of the site you want to work on, and type:
@@ -133,7 +130,7 @@ conflict with one is required to stop and say so.
 ## Tested on
 
 Built and verified end to end on **Windows 11 + Git Bash**, driving real Docker (29.6.2, Compose
-v5.3.1) and a real OpenSEO container (0.1.3) against a live site: a 7-page crawl, 10 issue rows
+v5.3.1) and a real OpenSEO container (0.1.3) against a live test fixture: a 7-page crawl, 10 issue rows
 across 6 types, and both deliberately seeded defects found, triaged and fixed behind the build gate.
 The whole run — including the parts that failed — is written up in
 **[docs/SMOKE.md](docs/SMOKE.md)**, with every finding marked fixed or still open. It is worth

@@ -14,8 +14,9 @@ Automated, not a hand-waved judgement. `skill-creator`'s description-optimizatio
 20 realistic queries (10 that must trigger, 10 near-misses that must not), each run repeatedly
 through a real `claude -p` session, scored on whether the skill actually fired.
 
-**What ran, and the two places it deviates from upstream** — both forced, both recorded so the
-numbers below can be read for exactly what they are:
+**What ran, and the four places it deviates from upstream** — recorded so the numbers below can be
+read for exactly what they are. The first two were forced by the environment; the last two by this
+task's bounds and by what the measurements turned out to show:
 
 1. **The harness is a port, not the shipped script.** `skill-creator/scripts/run_eval.py` cannot
    run on Windows: it calls `select.select()` on a subprocess pipe, and Windows `select` accepts
@@ -31,6 +32,23 @@ numbers below can be read for exactly what they are:
    picking the real one would score as a miss. Instead each candidate was written into `SKILL.md`'s
    description line, measured, and the original restored in a `finally` block. That measures what a
    user actually experiences.
+3. **The winner was not selected by held-out test score alone.** Upstream `run_loop` returns
+   `best_description` chosen by test score, specifically to avoid overfitting to train. That rule
+   could not discriminate here: C2, C3 and C4 all tied at 8/8 on test. It would also have been
+   contaminated, because the exclusion clause was authored with knowledge of N4, which sits in the
+   test half. Selection therefore used the full 20 plus per-query reasoning. §4 keeps the full
+   explanation, since this is the one deviation that could flatter the result.
+4. **One improver call plus three hand-authored variants, not `run_loop`'s iteration loop.**
+   Upstream loops up to five automated iterations, each re-proposing from the previous scores.
+   Here `improve_description.py` ran once on the train split — and its output could not ship
+   (literal double quotes break a one-line YAML scalar) and broke two of the skill's own
+   constraints, so the three tested candidates were hand-authored from its insight plus the
+   measured per-query evidence. The automated loop also cannot honour this task's bounds, which
+   permit edits to the description line and nothing else.
+
+One more compression worth naming: upstream Step 2 has the *user* sign off on the eval set through
+an HTML review page before any optimization runs. That step did not happen — all 20 queries have a
+single author, which §4 records as a limit on the result rather than a detail.
 
 **Conditions, held constant across all four descriptions:**
 
@@ -38,13 +56,30 @@ numbers below can be read for exactly what they are:
 | --- | --- |
 | Runs per query | 3 (60 `claude -p` invocations per description, 240 total) |
 | Trigger threshold | a query passes if it fires ≥ 50% of its runs (upstream default) |
-| Model | the session default, i.e. what the user gets |
+| Model | **`claude-fable-5`** — see the note below |
+| CLI | `claude` 2.1.220 |
+| Per-query timeout | **150s** (upstream default is 30s) |
 | Trigger rule | upstream's: a run counts only if the **first** tool call is `Skill`/`Read` naming seo-god |
 | cwd | one fixed empty scratch dir |
 | Side effects | none — the subprocess is killed at `content_block_start`, before any tool executes |
 
-Read those last two rows as limits on the result. First-tool-use is conservative: a skill invoked
-after one exploratory `Glob` scores as a miss. And an empty cwd is not a website repo, which
+**On the model, stated with the uncertainty it deserves.** The harness passed no `--model`, so every
+run used whatever the `claude` CLI resolves as its default. That default was recovered as
+`claude-fable-5` by re-querying the same CLI, in the same directory, with the same environment,
+minutes after the last run — **the 240 runs themselves did not log it**, so this is strong
+circumstantial evidence rather than a recording. Note the mismatch it exposes: skill-creator's
+method says to pass the model powering the current session, and the orchestrating session was
+`claude-opus-5`. It was not passed, so these numbers describe triggering under `claude-fable-5`.
+Triggering is a model-level judgement, so a different model can plausibly score differently — treat
+the table in §2 as measured on that model, not as model-independent.
+
+**On the timeout.** 30s is not survivable here: a Windows `claude` CLI cold start plus a full model
+turn regularly exceeds it, so a 30s ceiling would have manufactured non-triggers wholesale. 150s
+was picked to sit clear of that, and it nearly did — exactly one run of 240 still hit the ceiling
+(§4).
+
+Read the trigger-rule and cwd rows as limits on the result. First-tool-use is conservative: a skill
+invoked after one exploratory `Glob` scores as a miss. And an empty cwd is not a website repo, which
 probably depresses the repo-shaped positives — a real user runs this inside their project.
 
 ---
@@ -137,8 +172,8 @@ full intent-framed rewrite. Three findings came out of testing it:
   different rewrites making the same mistake is a tradeoff, not noise: language wide enough to
   catch "traffic dropped" is wide enough to catch "analytics says traffic dropped", which is a
   debugging job. That is why C4 does **not** add ranking-drop or traffic-drop language.
-- **The imperative-first advice did not win here.** `improve_description.py` prefers "Use this
-  skill for ..." over a noun phrase. C2 followed it and scored no better than the noun-phrase
+- **The imperative-first advice did not win here.** `improve_description.py` states it as
+  `"Use this skill for" rather than "this skill does"`. C2 followed it and scored no better than the noun-phrase
   baseline (18/20), while C3 scored worse (17/20). Worth a retest at higher n before acting on it.
 
 ---
@@ -182,10 +217,134 @@ and are logged rather than acted on:
    clicks" is a genuine boundary case. It is currently, and correctly, someone else's job. If the
    design later wants seo-god to own Search Console data-quality debugging, that is a scope
    decision for `references/measure.md` — not a description tweak.
-3. **Run a capability benchmark, not just a triggering one.** skill-creator's main loop
+3. **Test the exclusion clause against implicit-intent competitor phrasing.** N4 says "don't touch
+   our site" out loud, which is the easy shape. The untested shape is the one where the user's own
+   site never appears in the sentence at all — "pull quizlet's backlink profile so I know what to
+   chase" — where the clause has no explicit cue to catch and the implied next step *is* work on
+   their own site. Future-eval material; the clause's measured 0/3 does not cover it.
+4. **Run a capability benchmark, not just a triggering one.** skill-creator's main loop
    (with-skill vs. baseline runs, graded assertions, `benchmark.json`, the eval viewer) measures
    whether the skill *does the job well*, which this pass did not touch at all. It needs a
    throwaway site and a live OpenSEO container. That is the highest-value remaining eval.
-4. **Contribute the Windows fix upstream.** `run_eval.py`'s `select.select()` on a pipe makes
+5. **Contribute the Windows fix upstream.** `run_eval.py`'s `select.select()` on a pipe makes
    skill-creator's whole eval loop unrunnable on Windows. A thread-and-queue reader fixes it
    without changing the method, as the port here demonstrates.
+
+---
+
+## Appendix A — the eval set, verbatim
+
+Every query below is reproduced exactly as the harness sent it to `claude -p`, generated
+straight from the JSON the harness read rather than retyped, so it cannot drift from what
+actually ran. Lowercase, missing apostrophes and casual phrasing are deliberate: these are
+meant to read like something a real user types, not like test fixtures. `split` is the
+stratified 60/40 assignment from upstream `split_eval_set(holdout=0.4, seed=42)`; the
+improver only ever saw the train half.
+
+### A.1 — must trigger (10)
+
+**P1** — improve my SEO  
+split: train · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> i run a small chrome extension site (fastsolve.io) and honestly my google traffic has been flat for like 4 months. can you help me improve my seo? and i mean actually go through the site and fix things, not hand me another checklist
+
+**P2** — why am I not ranking  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> why am i not ranking for 'quiz solver extension' anymore? we have a page for it at /solve-quizzes and it used to sit around position 15, now i cant find us in the first 5 pages at all
+
+**P3** — SEO audit  
+split: **test** · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> can you run a proper seo audit on my next.js site - broken links, missing meta descriptions, duplicate title tags, orphan pages, the whole lot. the repo is this directory
+
+**P4** — set up SEO monitoring  
+split: **test** · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> i want to set up seo monitoring so something tells me when a ranking drops instead of me finding out three weeks later. ideally it just runs itself every morning
+
+**P5** — get cited by ChatGPT  
+split: train · triggers: base 2/3 · c2 3/3 · c3 1/3 · c4 2/3
+
+> how do i get cited by chatgpt when someone asks it for tools to solve online quizzes? right now it names three competitors and never mentions us once
+
+**P6** — /seo-god (always-trigger)  
+split: train · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> /seo-god
+
+**P7** — coverage: technical indexing, word 'SEO' never used  
+split: train · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> search console is telling me 41 of my pages are 'Crawled - currently not indexed' and i genuinely dont know what that means or what im supposed to do about it. its a next app on vercel
+
+**P8** — coverage: AI visibility, phrased as LLM recommendation  
+split: **test** · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> perplexity and claude both recommend my competitor whenever someone asks about my category. what do i actually have to change on the site so the LLMs start picking us up too
+
+**P9** — coverage: schedule the loop + digest  
+split: **test** · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> can you make the whole ranking-check-and-fix loop run itself every day around 5am and telegram me a short digest? i keep forgetting to look
+
+**P10** — coverage: local crawl + repo fixes, names a paid competitor  
+split: train · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
+
+> i want something that crawls my own site locally, works out which on-page problems actually matter, and then opens the files and fixes the titles itself. is that a thing or do i just have to pay for ahrefs
+
+### A.2 — must NOT trigger (10)
+
+The first three are the plain negative controls. The remaining seven are near-misses, which are
+the ones that carry the information: each shares vocabulary or intent with the skill while needing
+something else. A negative control that is obviously irrelevant tests nothing.
+
+**N1** — negative control (brief): review this PR  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> review this PR before i merge it - branch is feat/semester-pass, it touches the stripe webhook and i want a second pair of eyes on the entitlement downgrade logic
+
+**N2** — negative control (brief): write a blog post  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> write a blog post about why chrome extensions get rejected from the web store. around 1200 words, our usual voice, its going in the /blog section
+
+**N3** — negative control (brief): fix my docker compose  
+split: **test** · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> fix my docker compose - the postgres service keeps restarting and the app container cant resolve 'db' as a hostname. file is ./docker-compose.yml
+
+**N4** — near-miss: competitor data lookup, not own-site loop  
+split: **test** · triggers: base 2/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> pull the domain rating and top 50 organic keywords for quizlet.com out of ahrefs so i can see what theyre ranking for. just the numbers, dont touch our site
+
+**N5** — near-miss: paid search, not organic  
+split: **test** · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> our google ads CPC has basically doubled this month on the 'quiz answers' ad group. can you look at the campaign and tell me which ad groups to pause
+
+**N6** — near-miss: Core Web Vitals as a perf task  
+split: **test** · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> lighthouse says LCP is 4.2s on mobile for the homepage. can you profile it in devtools and fix whatever the biggest offender is
+
+**N7** — near-miss: social reach, 'not getting found'  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> my instagram reels arent getting reach anymore. can you look at the last 10 and work out what changed
+
+**N8** — near-miss: store search ranking, not web search  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> our chrome web store listing doesnt show up when people search 'quiz helper' inside the store. can you rewrite the listing title and description so it ranks better in CWS search
+
+**N9** — near-miss: analytics plumbing bug, mentions Search Console  
+split: train · triggers: base 0/3 · c2 3/3 · c3 2/3 · c4 0/3
+
+> GA4 has been showing 0 organic sessions for the last 4 days but search console still shows clicks coming in. is the gtag broken or is this a data delay thing
+
+**N10** — near-miss: internal site search index  
+split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
+
+> our docs site search (algolia) returns nothing for 'canvas quizzes' even though that page definitely exists. can you check the index config

@@ -51,6 +51,13 @@ dated snapshots and readouts in your repo instead, and it is available any time 
 | 5 | [**schedule**](references/schedule.md) | Installs the loop as a real OS job (Task Scheduler, launchd or cron) or as a cloud routine. The skill asks which. Both come with a 48-hour self-check that surfaces a run that went missing. |
 | — | [**act**](references/act.md) | *The daily loop, on demand.* Fix what regressed. Improve two or three pages that already almost rank. Add at most one new page, and only if the data asked for it. Leave a dated readout behind. |
 
+<p align="center">
+  <img src="./assets/readme/ai-visibility-story.svg" width="100%"
+       alt="Phase 4 as four numbered scenes. 01, someone asks: a chat bubble reading 'best invoicing tool for freelancers?' goes into a neutral AI engine panel that answers in its own words — buying intent, no brand named. 02, the answer names somebody: competitor-one.com and a-directory.com are named; your domain takes a dash marker and 'no way to know', because that exchange leaves no log, no referrer and no event. 03, seo-god locks ten questions like it: five branded-adjacent with three showing your domain, five unbranded commercial with one, a first measurement of 4 of 10, locked on run one and never edited again. 04, you answer and it checks again: one answer-first page for a prompt you missed, then the next check finds your domain in six of the same ten slots — printed in the readout's own words as 'Score: 6 of the 10 that ran' and 'Split: branded-adjacent 4/5, unbranded 2/5'. The next run's search is the test. Underneath, the two modes: free path measures results-page presence; optional LLM keys measure direct model answers. Being the answer AI engines cite is the goal, and the skill never claims it happened.">
+</p>
+
+<p align="center"><em>You never see that answer. You can check whether your page was in the results at all.</em></p>
+
 > [!IMPORTANT]
 > **What "AI visibility" measures, exactly.** On the free path it measures whether your domain
 > appears in the *search results* for your locked prompts. That is a search-visibility proxy, and it

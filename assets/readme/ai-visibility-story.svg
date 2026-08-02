@@ -1,0 +1,169 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="752" viewBox="0 0 1200 752"
+     role="img" aria-labelledby="storyTitle storyDesc">
+  <title id="storyTitle">What AI visibility measures, told as the four steps it actually runs</title>
+  <desc id="storyDesc">Four numbered scenes. 01, someone asks: a chat bubble reading "best invoicing tool for freelancers?" goes into a neutral AI engine panel that answers in its own words; the question carries buying intent and names no brand. 02, the answer names somebody: competitor-one.com and a-directory.com are named, your domain takes a dash marker and "no way to know", because that exchange leaves no log, no referrer and no event. 03, seo-god locks ten questions like it: five branded-adjacent, three of them showing your domain, and five unbranded commercial, one of them showing it, for a first measurement of 4 of 10; the set is locked on run one and never edited again. 04, you answer and it checks again: one answer-first page for a prompt you missed, then the next check finds your domain in six of the ten slots, printed in the readout's own words as Score 6 of the 10 that ran, and Split branded-adjacent 4/5, unbranded 2/5; the next run's search is the test. Underneath, the two modes: the free path measures results-page presence, and optional LLM keys measure direct model answers. Being the answer AI engines cite is the goal, and the skill never claims it happened.</desc>
+
+  <rect x="0.75" y="0.75" width="1198.5" height="750.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
+
+  <g id="board-header">
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" letter-spacing="3" fill="#7EE787">AI VISIBILITY</text>
+    <text x="1136" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" fill="#6E7B8A">references/ai-visibility.md</text>
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif"
+          font-size="40" font-weight="700" fill="#E6EDF3">Nobody logs the answer. So it checks the search.</text>
+  </g>
+
+  <!-- 01 — someone asks. The engine panel stays unbranded on purpose: the prose names engines, the picture does not. -->
+  <g id="scene-ask">
+    <rect x="64" y="142" width="516" height="244" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="178" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270">01</text>
+    <text x="118" y="178" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20" letter-spacing="2.5" fill="#C9D4E0">SOMEONE ASKS</text>
+    <line x1="82" y1="194" x2="562" y2="194" stroke="#2A3441" stroke-width="1.5"/>
+
+    <rect x="82" y="204" width="356" height="70" rx="10" fill="#0B0F14" stroke="#2F3A47" stroke-width="1.5"/>
+    <!-- tail: fill first (it paints over the bubble's bottom border), then stroke the two outer edges only -->
+    <path d="M99,268 L99,292 L122,268 Z" fill="#0B0F14"/>
+    <path d="M100.75,274 L100.75,289 L117,274" fill="none" stroke="#2F3A47" stroke-width="1.5"/>
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">
+      <text x="100" y="232">best invoicing tool</text>
+      <text x="100" y="258">for freelancers?</text>
+    </g>
+
+    <rect x="82" y="294" width="480" height="40" rx="10" fill="#0B0F14" stroke="#2F3A47" stroke-width="1.5"/>
+    <text x="100" y="319" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19"><tspan fill="#C9D4E0">AI engine</tspan><tspan fill="#566270">  ·  </tspan><tspan fill="#8A97A6">answers in its own words</tspan></text>
+
+    <line x1="82" y1="346" x2="562" y2="346" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="370" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#6E7B8A">buying intent  ·  no brand named</text>
+  </g>
+
+  <!-- 02 — the answer names somebody. Muted fills, not the measured green: nothing here is a reading. -->
+  <g id="scene-answer">
+    <rect x="620" y="142" width="516" height="244" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="638" y="178" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270">02</text>
+    <text x="674" y="178" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20" letter-spacing="2.5" fill="#C9D4E0">THE ANSWER NAMES SOMEBODY</text>
+    <line x1="638" y1="194" x2="1118" y2="194" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="640" y="225" width="9" height="9" fill="#8A97A6"/>
+      <text x="664" y="234" fill="#C9D4E0">competitor-one.com</text>
+      <text x="1118" y="234" text-anchor="end" fill="#8A97A6">named</text>
+
+      <rect x="640" y="263" width="9" height="9" fill="#8A97A6"/>
+      <text x="664" y="272" fill="#C9D4E0">a-directory.com</text>
+      <text x="1118" y="272" text-anchor="end" fill="#8A97A6">named</text>
+
+      <rect x="640" y="303.75" width="11" height="2.5" fill="#4A5563"/>
+      <text x="664" y="310" fill="#E6EDF3">your domain</text>
+      <text x="1118" y="310" text-anchor="end" fill="#8A97A6">no way to know</text>
+    </g>
+
+    <line x1="638" y1="346" x2="1118" y2="346" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="638" y="370" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#6E7B8A">no log  ·  no referrer  ·  no event</text>
+  </g>
+
+  <g id="row-flow" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270" text-anchor="middle">
+    <text x="600" y="264">&gt;</text>
+    <text x="600" y="544">&gt;</text>
+  </g>
+
+  <!-- the wrap: the unobservable answer is exactly why a locked, repeatable check exists -->
+  <g id="wrap">
+    <path d="M878,386 L878,400 L322,400 L322,408" fill="none" stroke="#2F3A47" stroke-width="1.5"/>
+    <path d="M315,408 L322,422 L329,408 Z" fill="#566270"/>
+    <rect x="520" y="387" width="160" height="26" fill="#0B0F14"/>
+    <text x="600" y="405" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#8A97A6">so it checks</text>
+  </g>
+
+  <!-- 03 — ten slots, five and five. Filled = your domain was in the results; hollow = it was not. -->
+  <g id="scene-lock">
+    <rect x="64" y="422" width="516" height="244" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="458" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270">03</text>
+    <text x="118" y="458" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20" letter-spacing="2.5" fill="#C9D4E0">SEO-GOD LOCKS TEN LIKE IT</text>
+    <line x1="82" y1="474" x2="562" y2="474" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="82" y="505" width="11" height="11" fill="#3FB950"/>
+      <rect x="102" y="505" width="11" height="11" fill="#3FB950"/>
+      <rect x="122" y="505" width="11" height="11" fill="#3FB950"/>
+      <rect x="142.75" y="505.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="162.75" y="505.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <text x="196" y="516" fill="#C9D4E0">branded-adjacent</text>
+      <text x="562" y="516" text-anchor="end" fill="#8A97A6">3/5</text>
+
+      <rect x="82" y="545" width="11" height="11" fill="#3FB950"/>
+      <rect x="102.75" y="545.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="122.75" y="545.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="142.75" y="545.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="162.75" y="545.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <text x="196" y="556" fill="#C9D4E0">unbranded commercial</text>
+      <text x="562" y="556" text-anchor="end" fill="#8A97A6">1/5</text>
+    </g>
+
+    <text x="82" y="596" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20"><tspan fill="#6E7B8A">Score: </tspan><tspan fill="#E6EDF3">4 of 10</tspan></text>
+    <text x="562" y="596" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" fill="#8A97A6">first measurement</text>
+
+    <line x1="82" y1="626" x2="562" y2="626" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="650" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#6E7B8A">locked on run one  ·  never edited again</text>
+  </g>
+
+  <!-- 04 — the same ten slots, one loop later, closing on the readout's own two lines -->
+  <g id="scene-loop">
+    <rect x="620" y="422" width="516" height="244" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="638" y="458" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270">04</text>
+    <text x="674" y="458" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20" letter-spacing="2.5" fill="#C9D4E0">YOU ANSWER, IT CHECKS AGAIN</text>
+    <line x1="638" y1="474" x2="1118" y2="474" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="640" y="491" width="9" height="9" fill="#3FB950"/>
+      <text x="664" y="500" fill="#C9D4E0">answer-first page</text>
+      <text x="1118" y="500" text-anchor="end" fill="#8A97A6">for one you missed</text>
+
+      <rect x="638" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="658" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="678" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="698" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="718.75" y="523.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="746" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="766" y="523" width="11" height="11" fill="#3FB950"/>
+      <rect x="786.75" y="523.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="806.75" y="523.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <rect x="826.75" y="523.75" width="9.5" height="9.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+      <text x="1118" y="534" text-anchor="end" fill="#8A97A6">next check</text>
+    </g>
+
+    <text x="638" y="570" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="20"><tspan fill="#6E7B8A">Score: </tspan><tspan fill="#E6EDF3">6 of the 10 that ran</tspan></text>
+    <text x="638" y="602" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18"><tspan fill="#6E7B8A">Split: </tspan><tspan fill="#C9D4E0">branded-adjacent 4/5, unbranded 2/5</tspan></text>
+
+    <line x1="638" y1="626" x2="1118" y2="626" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="638" y="650" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#6E7B8A">the next run's search is the test</text>
+  </g>
+
+  <!-- the two modes, in frame: what the free path reads, and what a key changes -->
+  <g id="modes">
+    <rect x="167" y="693" width="9" height="9" fill="#3FB950"/>
+    <text x="191" y="702" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19"><tspan fill="#6E7B8A">free path</tspan><tspan fill="#566270">  ·  </tspan><tspan fill="#C9D4E0">results-page presence</tspan></text>
+
+    <rect x="631.75" y="693.75" width="7.5" height="7.5" fill="none" stroke="#4A5563" stroke-width="1.5"/>
+    <text x="655" y="702" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19"><tspan fill="#6E7B8A">LLM keys</tspan><tspan fill="#566270">  ·  </tspan><tspan fill="#8A97A6">direct model answers</tspan></text>
+  </g>
+
+  <text x="600" y="730" text-anchor="middle" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" fill="#6E7B8A">the goal is being the answer AI engines cite  ·  the skill never claims it happened</text>
+</svg>

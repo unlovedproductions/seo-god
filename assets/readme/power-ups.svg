@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="452" viewBox="0 0 1200 452"
+     role="img" aria-labelledby="powerTitle powerDesc">
+  <title id="powerTitle">The three optional power-ups, and the guard on each</title>
+  <desc id="powerDesc">Three optional add-ons; the free path is complete without them. DataForSEO adds real volume, difficulty and backlinks, and carries all three guards: a $0.50 per-run cap set by SEO_GOD_D4S_BUDGET_USD, a $2.00 balance floor, and a spend ledger. LLM API keys add direct model probing on the same locked prompts; they carry a per-run cap and a ledger, but no balance floor, because no provider exposes a balance — set a provider-side limit instead. The Telegram digest is outbound only and fires on completed runs; raising an alarm is not its job. No message means the run did not finish, and the 48-hour missed-run warning is the failure signal.</desc>
+
+  <rect x="0.75" y="0.75" width="1198.5" height="450.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
+
+  <g id="board-header">
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" letter-spacing="3" fill="#7EE787">POWER-UPS</text>
+    <text x="1136" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" fill="#6E7B8A">references/power-ups.md</text>
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif"
+          font-size="40" font-weight="700" fill="#E6EDF3">All three optional. The free path is complete.</text>
+  </g>
+
+  <!-- DataForSEO: the only power-up that can spend money, so it carries all three guards -->
+  <g id="card-dataforseo">
+    <rect x="64" y="142" width="342" height="258" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="180" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" fill="#E6EDF3">DataForSEO</text>
+    <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#8A97A6">
+      <text x="82" y="208">real volume, difficulty,</text>
+      <text x="82" y="230">backlinks and referrers</text>
+    </g>
+    <line x1="82" y1="248" x2="388" y2="248" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="82" y="269" width="9" height="9" fill="#3FB950"/>
+      <text x="102" y="278" fill="#6E7B8A">cap</text>
+      <text x="184" y="278" fill="#C9D4E0">$0.50 per run</text>
+
+      <rect x="82" y="301" width="9" height="9" fill="#3FB950"/>
+      <text x="102" y="310" fill="#6E7B8A">floor</text>
+      <text x="184" y="310" fill="#C9D4E0">$2.00 balance</text>
+
+      <rect x="82" y="333" width="9" height="9" fill="#3FB950"/>
+      <text x="102" y="342" fill="#6E7B8A">ledger</text>
+      <text x="184" y="342" fill="#C9D4E0">spend.json</text>
+    </g>
+
+    <line x1="82" y1="372" x2="388" y2="372" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="82" y="390" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#6E7B8A">SEO_GOD_D4S_BUDGET_USD</text>
+  </g>
+
+  <!-- LLM keys: capped and ledgered, but there is no balance to floor -->
+  <g id="card-llm">
+    <rect x="429" y="142" width="342" height="258" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="447" y="180" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" fill="#E6EDF3">LLM API keys</text>
+    <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#8A97A6">
+      <text x="447" y="208">direct model probing on</text>
+      <text x="447" y="230">the same locked prompts</text>
+    </g>
+    <line x1="447" y1="248" x2="753" y2="248" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="447" y="269" width="9" height="9" fill="#3FB950"/>
+      <text x="467" y="278" fill="#6E7B8A">cap</text>
+      <text x="549" y="278" fill="#C9D4E0">prompts x models</text>
+
+      <rect x="447" y="304.75" width="9" height="2.5" fill="#4A5563"/>
+      <text x="467" y="310" fill="#6E7B8A">floor</text>
+      <text x="549" y="310" fill="#8A97A6">none exposed</text>
+
+      <rect x="447" y="333" width="9" height="9" fill="#3FB950"/>
+      <text x="467" y="342" fill="#6E7B8A">ledger</text>
+      <text x="549" y="342" fill="#C9D4E0">the Models: line</text>
+    </g>
+
+    <line x1="447" y1="372" x2="753" y2="372" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="447" y="390" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#6E7B8A">set a provider-side limit</text>
+  </g>
+
+  <!-- Telegram: costs nothing, and reporting failure is deliberately not its job -->
+  <g id="card-telegram">
+    <rect x="794" y="142" width="342" height="258" rx="12" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="812" y="180" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" fill="#E6EDF3">Telegram digest</text>
+    <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif" font-size="19" fill="#8A97A6">
+      <text x="812" y="208">the day's readout,</text>
+      <text x="812" y="230">on your phone</text>
+    </g>
+    <line x1="812" y1="248" x2="1118" y2="248" stroke="#2A3441" stroke-width="1.5"/>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19">
+      <rect x="812" y="269" width="9" height="9" fill="#3FB950"/>
+      <text x="832" y="278" fill="#6E7B8A">sends</text>
+      <text x="914" y="278" fill="#C9D4E0">outbound only</text>
+
+      <rect x="812" y="301" width="9" height="9" fill="#3FB950"/>
+      <text x="832" y="310" fill="#6E7B8A">fires</text>
+      <text x="914" y="310" fill="#C9D4E0">on completed runs</text>
+
+      <rect x="812" y="336.75" width="9" height="2.5" fill="#4A5563"/>
+      <text x="832" y="342" fill="#6E7B8A">alarm</text>
+      <text x="914" y="342" fill="#8A97A6">not its job</text>
+    </g>
+
+    <line x1="812" y1="372" x2="1118" y2="372" stroke="#2A3441" stroke-width="1.5"/>
+    <text x="812" y="390" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="18" fill="#6E7B8A">the 48h warning does that</text>
+  </g>
+
+  <text x="600" y="428" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="19" fill="#8A97A6">Telegram: no message means the run did not finish. The 48h warning is the failure signal.</text>
+</svg>

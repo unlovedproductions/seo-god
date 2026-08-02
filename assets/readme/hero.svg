@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420"
      role="img" aria-labelledby="heroTitle heroDesc">
   <title id="heroTitle">SEO-GOD — a Claude Code skill</title>
-  <desc id="heroDesc">Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Beside the title, the skill's own menu: setup, audit and measure done; ai_visibility and schedule pending; act available on demand; power-ups optional.</desc>
+  <desc id="heroDesc">Point Claude Code at your own site: it audits, fixes and measures, then runs the whole loop again tomorrow. Under the title, the whole install: clone, then /seo-god, then it runs again tomorrow at 05:00. Beside it, the skill's own menu: setup, audit and measure done; ai_visibility and schedule pending; act available on demand; power-ups optional.</desc>
 
   <rect x="0.75" y="0.75" width="1198.5" height="418.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
 
@@ -22,8 +22,8 @@
     </g>
 
     <line x1="64" y1="320" x2="552" y2="320" stroke="#232B36" stroke-width="1.5"/>
-    <text x="64" y="352" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
-          font-size="19" fill="#6E7B8A">MIT · Windows, macOS, Linux · no paid keys</text>
+    <text x="64" y="352" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19"><tspan fill="#6E7B8A">clone · </tspan><tspan fill="#C9D4E0">/seo-god</tspan><tspan fill="#6E7B8A"> · again tomorrow, 05:00</tspan></text>
   </g>
 
   <!-- the skill's own first screen -->

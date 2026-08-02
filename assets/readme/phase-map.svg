@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="396" viewBox="0 0 1200 396"
+     role="img" aria-labelledby="mapTitle mapDesc">
+  <title id="mapTitle">The five phases, and the daily loop that follows them</title>
+  <desc id="mapDesc">Five numbered phases run once each, in the order the skill's own menu prints them: 01 setup, 02 audit, 03 measure, 04 ai_visibility, 05 schedule. All five feed one unnumbered row marked with a dash — act, the daily loop. act is not a phase and carries no phase state, and it is available any day once setup is done. Phase results live in seo-god.json; act leaves dated snapshots and readouts in the repo instead.</desc>
+
+  <rect x="0.75" y="0.75" width="1198.5" height="394.5" rx="24" fill="#0B0F14" stroke="#232B36" stroke-width="1.5"/>
+
+  <g id="board-header">
+    <text x="64" y="58" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" letter-spacing="3" fill="#7EE787">THE FIVE PHASES</text>
+    <text x="1136" y="58" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="19" fill="#6E7B8A">one phase per invocation</text>
+    <text x="64" y="106" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Helvetica, Arial, sans-serif"
+          font-size="40" font-weight="700" fill="#E6EDF3">Five phases, once each. Then act, every day.</text>
+  </g>
+
+  <!-- the five numbered phases: same grid as the daily-loop board, so the two read as one system -->
+  <g id="phases">
+    <g>
+      <rect x="64" y="146" width="196" height="86" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+      <text x="78" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#566270">01</text>
+      <text x="78" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">setup</text>
+    </g>
+    <g>
+      <rect x="283" y="146" width="196" height="86" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+      <text x="297" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#566270">02</text>
+      <text x="297" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">audit</text>
+    </g>
+    <g>
+      <rect x="502" y="146" width="196" height="86" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+      <text x="516" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#566270">03</text>
+      <text x="516" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">measure</text>
+    </g>
+    <g>
+      <rect x="721" y="146" width="196" height="86" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+      <text x="735" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#566270">04</text>
+      <text x="735" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">ai_visibility</text>
+    </g>
+    <g>
+      <rect x="940" y="146" width="196" height="86" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+      <text x="954" y="186" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="26" fill="#566270">05</text>
+      <text x="954" y="218" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#E6EDF3">schedule</text>
+    </g>
+
+    <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20" fill="#566270" text-anchor="middle">
+      <text x="271" y="196">&gt;</text>
+      <text x="490" y="196">&gt;</text>
+      <text x="709" y="196">&gt;</text>
+      <text x="928" y="196">&gt;</text>
+    </g>
+  </g>
+
+  <!-- all five converge on the unnumbered row -->
+  <g id="converge">
+    <path d="M162,234 L162,246 L1038,246 L1038,234" fill="none" stroke="#2F3A47" stroke-width="1.5"/>
+    <path d="M600,246 L600,264" fill="none" stroke="#2F3A47" stroke-width="1.5"/>
+    <path d="M593,264 L600,278 L607,264 Z" fill="#566270"/>
+    <text x="618" y="268" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+          font-size="18" fill="#8A97A6">every day</text>
+  </g>
+
+  <!-- act takes a dash, not a number: no phase state, always available -->
+  <g id="act-row">
+    <rect x="64" y="284" width="1072" height="54" rx="10" fill="#131A22" stroke="#2A3441" stroke-width="1.5"/>
+    <rect x="88" y="309.75" width="11" height="2.5" fill="#4A5563"/>
+    <text x="112" y="318" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="20"><tspan fill="#E6EDF3">act</tspan><tspan fill="#8A97A6">   ·   not a phase, no phase state   ·   available any day once setup is done</tspan></text>
+  </g>
+
+  <text x="600" y="372" text-anchor="middle" xml:space="preserve" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace"
+        font-size="18" fill="#6E7B8A">phase results live in seo-god.json  ·  act leaves dated snapshots and readouts instead</text>
+</svg>

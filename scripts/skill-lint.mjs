@@ -36,7 +36,7 @@ const scan = (dir) => {
   for (const e of readdirSync(join(root, dir), { withFileTypes: true })) {
     const rel = join(dir, e.name);
     if (e.isDirectory()) { if (!["node_modules", ".git", ".seo-god", ".superpowers"].includes(e.name)) scan(rel); continue; }
-    if (!/\.(md|mjs|sh|ps1|ya?ml|json)$/.test(e.name)) continue;
+    if (!/\.(md|mjs|sh|ps1|ya?ml|json|svg)$/.test(e.name)) continue;
     if (join(root, rel) === self) continue; // the rule file itself is not a scan target
     const body = readFileSync(join(root, rel), "utf8");
     for (const rx of FORBIDDEN) if (rx.test(body)) fail.push(`${rel}: forbidden pattern ${rx}`);

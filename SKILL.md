@@ -1,6 +1,6 @@
 ---
 name: seo-god
-description: "Agentic SEO operator for your own website: audits and fixes your site with OpenSEO, measures rankings + Google Search Console, makes AI engines cite you, and schedules the whole loop daily. Use for ANY 'improve my SEO', 'why am I not ranking', 'set up SEO monitoring', 'get cited by ChatGPT' request, and always on /seo-god."
+description: "Agentic SEO operator for your own website: audits and fixes your site with OpenSEO, measures rankings + Google Search Console, works to get ChatGPT and other AI engines citing you, and schedules the whole loop daily. Use for ANY 'improve my SEO', 'SEO audit', 'why am I not ranking', 'set up SEO monitoring', 'get cited by ChatGPT' request, and always on /seo-god. Not for competitor-only data pulls that leave your own site untouched."
 ---
 
 # SEO-GOD

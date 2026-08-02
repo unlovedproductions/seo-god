@@ -14,9 +14,10 @@ Automated, not a hand-waved judgement. `skill-creator`'s description-optimizatio
 20 realistic queries (10 that must trigger, 10 near-misses that must not), each run repeatedly
 through a real `claude -p` session, scored on whether the skill actually fired.
 
-**What ran, and the four places it deviates from upstream** — recorded so the numbers below can be
-read for exactly what they are. The first two were forced by the environment; the last two by this
-task's bounds and by what the measurements turned out to show:
+**Where this run departs from upstream** — every departure recorded, so the numbers below can be
+read for exactly what they are. The first two were forced by the environment, the next two by this
+task's bounds and by what the measurements turned out to show, and the last two are steps upstream
+takes that simply did not happen here:
 
 1. **The harness is a port, not the shipped script.** `skill-creator/scripts/run_eval.py` cannot
    run on Windows: it calls `select.select()` on a subprocess pipe, and Windows `select` accepts
@@ -45,10 +46,14 @@ task's bounds and by what the measurements turned out to show:
    constraints, so the three tested candidates were hand-authored from its insight plus the
    measured per-query evidence. The automated loop also cannot honour this task's bounds, which
    permit edits to the description line and nothing else.
-
-One more compression worth naming: upstream Step 2 has the *user* sign off on the eval set through
-an HTML review page before any optimization runs. That step did not happen — all 20 queries have a
-single author, which §4 records as a limit on the result rather than a detail.
+5. **Upstream's user sign-off on the eval set did not happen.** Step 2 of the method puts the eval
+   set in front of the *user* through an HTML review page before any optimization runs, on the
+   reasoning that bad queries produce a bad description. That review never took place: all 20
+   queries have a single author, which §4 records as a limit on the result rather than a detail.
+6. **`--model` was never passed.** Upstream's guidance is to run the triggering test on the model
+   powering the session, so the measurement matches what the user actually experiences. The harness
+   passed no `--model`, so every run took the CLI default instead. The note under the conditions
+   table records what that resolved to and what it costs; §5 item 6 carries the fix.
 
 **Conditions, held constant across all four descriptions:**
 
@@ -155,8 +160,8 @@ C4 is the baseline plus three deltas. Nothing else moved.
    capability clause is deliberate: the one candidate that dropped it (C3) saw P5 fall to 1/3.
 3. **"Not for competitor-only data pulls that leave your own site untouched." added.** This is the
    only edit with a clean measured win: N4 went 2/3 → 0/3, which is the whole of the precision
-   gain from 93% to 100%. "For your own website" alone did not hold the line against "pull
-   quizlet.com's keywords out of Ahrefs, don't touch our site".
+   gain from 93% to 100%. "For your own website" alone did not hold the line against N4 — the
+   competitor keyword pull, whose text is in A.2 verbatim rather than paraphrased here.
 
 ### What was rejected, and why
 
@@ -229,6 +234,15 @@ and are logged rather than acted on:
 5. **Contribute the Windows fix upstream.** `run_eval.py`'s `select.select()` on a pipe makes
    skill-creator's whole eval loop unrunnable on Windows. A thread-and-queue reader fixes it
    without changing the method, as the port here demonstrates.
+6. **Re-run the winner under `claude-opus-5` before treating these numbers as transferable, and
+   always pass `--model`.** Every figure in §2 was measured on `claude-fable-5`, the CLI default,
+   because no `--model` was passed — while the session skill-creator's method points at was
+   `claude-opus-5`. Whether a description triggers is a model-level judgement, so 19/20 at 100%
+   precision is a result *for that model*, not a property of the description. Re-running C4 alone
+   over the same 20 queries at n=3 settles it for about 60 invocations; folding it into item 1's
+   re-measurement costs almost nothing extra. The standing fix is smaller and matters more: pass
+   `--model` explicitly on every future run and record the resolved ID **with** the scores, so the
+   next person is not reconstructing it after the fact the way §1 had to.
 
 ---
 
@@ -348,3 +362,27 @@ split: train · triggers: base 0/3 · c2 3/3 · c3 2/3 · c4 0/3
 split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3
 
 > our docs site search (algolia) returns nothing for 'canvas quizzes' even though that page definitely exists. can you check the index config
+
+### A.3 — the four descriptions measured
+
+Two of the four are recoverable from the repo and are pointed at rather than duplicated, so there
+is no second copy to fall out of date. The two candidates that lost were never written to disk
+permanently, so a re-measurement could not re-author them from prose — they are reproduced here in
+full. All four strings are exactly what sat on the `description:` line while that column of §2 was
+being measured, read back off disk by the harness rather than copied from a draft.
+
+**baseline** — `git show c27321a:SKILL.md` (equivalently, the `-` side of `git show a12b37d -- SKILL.md`).
+
+**C4, shipped** — the live `description:` line in `SKILL.md`.
+
+**C2** — skill-creator's rewrite, re-expressed within the skill's own constraints (756 chars):
+
+```
+Use for ANY task about making the user's OWN website more visible in Google and in AI answers — improving it, diagnosing it, or automating it. Diagnosis counts as much as setup: someone asking why a page or keyword stopped ranking, slipped position, or vanished from search belongs here even when they never say 'SEO'. Covers auditing and fixing their site with OpenSEO, rankings + Google Search Console measurement, working to get ChatGPT and other AI engines citing them, and scheduling the whole loop to run daily. Trigger on 'improve my SEO', 'SEO audit', any why-am-I-not-ranking or traffic-drop question, 'set up SEO monitoring', 'get cited by ChatGPT' — and always on /seo-god. Not for competitor-only data pulls that leave their own site untouched.
+```
+
+**C3** — minimal intent-framed rewrite (541 chars):
+
+```
+Agentic SEO operator for the user's own website: audits and fixes their site with OpenSEO, measures rankings + Google Search Console, works to get AI engines citing them, and schedules the whole loop daily. Use for ANY 'improve my SEO', 'SEO audit', 'set up SEO monitoring', or 'get cited by ChatGPT' request, and for any question about why a page stopped ranking, slipped position, or lost organic traffic — even when the user never says 'SEO'. Always use on /seo-god. Not for competitor-only data pulls that leave their own site untouched.
+```

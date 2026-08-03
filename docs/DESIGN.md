@@ -5,7 +5,7 @@
 ## Goal
 
 A public Claude Code skill Aria's audience installs in one line. It turns Claude Code into an
-agentic SEO operator for THEIR site using OpenSEO + the methods proven on fastsolve.app:
+agentic SEO operator for THEIR site using OpenSEO + the methods proven on a production site:
 audit → measure → act → AI visibility → scheduled daily runs. Free path works end to end;
 paid services are optional power-ups. Distributed as a public GitHub repo; a companion setup
 guide lives on the author's site.
@@ -49,14 +49,14 @@ seo-god/                      (public repo == the skill folder)
    `seo-god.json` in their project root. Every first run does this pass before any of the rest,
    and every later phase gates on `phases.setup` being `"done"`.
 2. **AUDIT** (free): crawl with the local OpenSEO container (AUTH_MODE=local_noauth, embedded SQLite; its
-   in-container cron never fires — host drives it, learned on FastSolve). Crawl the user's
+   in-container cron never fires — host drives it, learned in production). Crawl the user's
    site, triage issues by impact, fix what lives in their repo (titles, metas, broken
    links, thin content) with verified edits and the user's own build/typecheck as the gate.
 3. **MEASURE** (free): walk the user through GSC OAuth connect (every gotcha documented);
    degrade gracefully to OpenSEO rank tracking + crawl deltas if they skip it. Daily
    snapshot to `dist/seo/snapshots/<date>.json` in their repo; run-over-run diff; review
    order is regression-first (regressions > quick wins pos 4-15 > new queries) — the
-   FastSolve REVIEW step, genericized.
+   production REVIEW step, genericized.
 4. **AI VISIBILITY** (free core, paid upgrade): lock a 10-prompt set for the user's niche on
    first run (never edited afterward — comparability). Free-path probing = Claude Code's
    WebSearch tool per prompt, scoring whether the user's domain appears in results/answers;
@@ -70,7 +70,7 @@ seo-god/                      (public repo == the skill folder)
      on battery, execution time limit (the 0x800710E0 lesson), plus a "did it actually run"
      self-check that surfaces missed runs the next time the user opens Claude Code.
    - **Cloud routine**: for users with claude.ai routine access + a GitHub repo — a
-     genericized version of the FastSolve monitor prompt (consume snapshot, act, readout);
+     genericized version of the production monitor prompt (consume snapshot, act, readout);
      points at the schedule plugin flow. Cloud can't reach their local OpenSEO — the skill
      says so plainly and scopes the routine to repo-visible data.
 
@@ -83,7 +83,7 @@ Safety rails).
 ## Power-ups (offered contextually, never required)
 
 - **DataForSEO** (~$50 min top-up): real volume/CPC/difficulty + backlinks. Ships with the
-  FastSolve budget-guard pattern MANDATORY: per-run spend cap, balance floor auto-disable,
+  production budget-guard pattern MANDATORY: per-run spend cap, balance floor auto-disable,
   spend ledger. No uncapped API loops, ever.
 - **LLM API keys**: multi-model AI-citation measurement (metric-v2 style).
 - **Telegram digest**: bot-token + pairing walkthrough (generalized from a production bot
@@ -104,8 +104,8 @@ Safety rails).
 ## README + branding
 
 - README.md built with the **beautify-github-readme** skill (Aria requirement): hero,
-  badges, section headers, cohesive visual story. Install = one line. A "built live on
-  fastsolve.app" proof section links the public AI-visibility report.
+  badges, section headers, cohesive visual story. Install = one line. A proof section states
+  the provenance and points at the in-repo smoke and eval reports — no outbound product links.
 - In-skill instruction text stays neutral/technical (it's for Claude, not the audience).
   The companion setup guide on the author's site carries the author's voice instead — launch
   collateral, out of scope for the skill build.
@@ -130,6 +130,6 @@ multi-site management, Windows-service style always-on daemons, SERP scraping of
 
 - Scaffold with **skill-creator** (structure, description tuning, evals); README via
   **beautify-github-readme**; repo under Aria's GitHub (public).
-- Genericize from the FastSolve engine by REWRITING, not copying — the original production
+- Genericize from the production engine by REWRITING, not copying — the original production
   engine is a separate private codebase; only its patterns and lessons transfer.
 - Next step after spec approval: **writing-plans** skill for the implementation plan.

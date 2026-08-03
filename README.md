@@ -22,11 +22,13 @@ It never scrapes Google. The entire free path runs without a single paid API key
 ## Proof
 
 The five phases here are a rewrite of a pipeline that runs daily on a production site.
-[The public AI-visibility report](https://fastsolve.app/reports/ai-visibility) on fastsolve.app is
-that pipeline's own output.
 
 The code in this repo is new. The method survived production. So did the review order, and the
 failure modes it guards against.
+
+You do not have to take my word for any of it. The [smoke report](./docs/SMOKE.md) is an
+end-to-end run against a live test fixture, failures included. The [eval](./docs/EVAL.md) is 240
+runs with the numbers. Both are in this repo.
 
 ## What it does
 

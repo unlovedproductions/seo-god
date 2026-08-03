@@ -251,7 +251,9 @@ and are logged rather than acted on:
 
 Every query below is reproduced exactly as the harness sent it to `claude -p`, generated
 straight from the JSON the harness read rather than retyped, so it cannot drift from what
-actually ran. Lowercase, missing apostrophes and casual phrasing are deliberate: these are
+actually ran. One deliberate exception: the site host name in **P1** was a real domain and has
+been replaced with `example-ext.com`. Nothing else was touched, and a host name has no bearing
+on whether the query triggers the skill. Lowercase, missing apostrophes and casual phrasing are deliberate: these are
 meant to read like something a real user types, not like test fixtures. `split` is the
 stratified 60/40 assignment from upstream `split_eval_set(holdout=0.4, seed=42)`; the
 improver only ever saw the train half.
@@ -261,7 +263,7 @@ improver only ever saw the train half.
 **P1** — improve my SEO  
 split: train · triggers: base 3/3 · c2 3/3 · c3 3/3 · c4 3/3
 
-> i run a small chrome extension site (fastsolve.io) and honestly my google traffic has been flat for like 4 months. can you help me improve my seo? and i mean actually go through the site and fix things, not hand me another checklist
+> i run a small chrome extension site (example-ext.com) and honestly my google traffic has been flat for like 4 months. can you help me improve my seo? and i mean actually go through the site and fix things, not hand me another checklist
 
 **P2** — why am I not ranking  
 split: train · triggers: base 0/3 · c2 0/3 · c3 0/3 · c4 0/3

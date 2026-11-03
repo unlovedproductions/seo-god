@@ -118,8 +118,8 @@ chmod +x "$DEST" 2>/dev/null || true
 # Verify the copy BEFORE registering anything: an entry pointed at a missing file fails daily.
 [ -f "$DEST" ] || die "the runner did not land at $DEST - nothing was scheduled"
 
-command -v claude >/dev/null 2>&1 ||
-  echo "warn: the claude CLI is not on PATH here - until it is, every run records ok:false, 'claude CLI not found'" >&2
+command -v cursor-agent >/dev/null 2>&1 || command -v cursor >/dev/null 2>&1 ||
+  echo "warn: cursor-agent is not on PATH here - until it is, every run records ok:false, 'cursor-agent not found'" >&2
 
 if [ "$((10#$(date +%H%M)))" -lt "$((HOUR * 100 + MIN))" ]; then
   WHEN="today at $TIME"
@@ -131,7 +131,7 @@ report_tail() {
   echo "  skill dir:   $SKILL_ROOT"
   echo "               passed as --skill-dir, so the scheduled run can read the phase files in references/"
   echo "  marker:      $PROJECT_DIR/.seo-god/last-run.json - /seo-god warns you when it goes 48h stale"
-  echo "  dry run it:  (cd '$PROJECT_DIR' && SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh --skill-dir '$SKILL_ROOT')   # starts no Claude session"
+  echo "  dry run it:  (cd '$PROJECT_DIR' && SEO_GOD_DRY_RUN=1 bash scripts/daily-run.sh --skill-dir '$SKILL_ROOT')   # starts no Cursor session"
 }
 
 # --- 4. Install the entry ------------------------------------------------------------------

@@ -62,7 +62,7 @@ step 6 menu as the recommended actions rather than asking a blocking question (a
 `daily` run must never stop to ask one). Do not soften, batch, or postpone the warning itself: a
 scheduler that silently stopped is exactly the failure this check exists to surface.
 
-**3. Argument `daily`** — the scheduled runner invokes `claude -p "/seo-god daily"`. Read
+**3. Argument `daily`** — the scheduled runner invokes `cursor-agent -p "/seo-god daily"`. Read
 `references/act.md`, run the daily loop, stop here. No menu, no questions: nobody is watching. If
 OpenSEO is unreachable or setup is incomplete, `references/act.md` DEGRADES rather than refusing —
 it does what the available data supports and names exactly what was missing in the readout, and it
@@ -87,7 +87,7 @@ phase you are resuming and why.
 SEO-GOD — <site_url>
   setup          <status>       OpenSEO running locally, site registered
   audit          <status>       crawl, triage by impact, fix what lives in the repo
-  measure        <status>       Search Console, daily snapshots, regression-first diff
+  measure        <status>       Search Console, optional Bing dashboard, snapshots, regression-first diff
   ai_visibility  <status>       do AI engines cite you, and what to fix so they do
   schedule       <status>       run the whole loop daily without you
   act            on demand      today's loop: regressions, quick wins, at most one new page
@@ -104,7 +104,7 @@ are not phases and have no entry in `phases`; they are always available once set
 | --- | --- | --- |
 | setup | `references/setup.md` | `site_url`, `openseo.url`, `openseo.status`, `phases.setup` |
 | audit | `references/audit.md` | `build_cmd`, `phases.audit` |
-| measure | `references/measure.md` | `gsc.connected`, `keywords`, `phases.measure` |
+| measure | `references/measure.md` | `gsc.connected`, `keywords`, `phases.measure` (Bing Webmaster is dashboard-only when the container has it — never stored in state) |
 | act (daily loop) | `references/act.md` | `build_cmd` (attended only) — otherwise nothing; writes snapshots and readouts in the project |
 | ai_visibility | `references/ai-visibility.md` | `ai_prompts_locked`, `phases.ai_visibility` |
 | schedule | `references/schedule.md` | `schedule.mode`, `schedule.time_local`, `phases.schedule`, `schedule.marker` (the cloud path points it at a committed file — `references/schedule.md` §4.4 owns that) |

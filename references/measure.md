@@ -313,6 +313,38 @@ inert placeholders that satisfy the schema, and `available:false` is the only th
 may read. Say once, plainly, that clicks, impressions and query data are **not measured** until GSC
 is connected, and that they can come back to this phase at any time.
 
+## 3.8 Optional — Bing Webmaster Tools (dashboard only)
+
+Bing Webmaster Insights is a **free** first-party source when the running OpenSEO build includes it
+(open-seo PR 341 and later). It is **not** in every published image. Detect before you offer it.
+
+**Detect.** Point the user at `<openseo.url>/p/<projectId>/settings/integrations`. If there is no
+**Bing Webmaster Tools** card, say in one line that this container has no Bing integration, and
+continue to section 4. Do not ask them to rebuild, upgrade, or pull a different image. If the card
+is present, offer: *"Connect Bing Webmaster for a dashboard Insights page (clicks and queries stay
+out of snapshots — OpenSEO has no MCP tool for that report), or skip?"*
+
+**Connect (when the card exists).** No new env var and no compose change — unlike GSC, Bing uses a
+per-user API key pasted in the UI, encrypted with the same `BETTER_AUTH_SECRET` already required for
+GSC OAuth tokens.
+
+1. They sign in at https://www.bing.com/webmasters and verify the site (Bing's own verification,
+   separate from OpenSEO and from Google Search Console).
+2. **Settings → API Access → Generate API Key.** Bing shows the key once; they copy it immediately.
+3. In OpenSEO, **Settings → Integrations → Bing Webmaster Tools**, paste the key. OpenSEO validates
+   it against Bing's `GetUserSites` before storing it; an invalid key is rejected at save time.
+4. Pick a **verified** site from the picker for this project. One Bing account key covers every site
+   on that account — save once, map site per project.
+5. The Insights page is `<openseo.url>/p/<projectId>/bing-performance` (nav: **Bing Insights**). Bing
+   returns one fixed rolling window (rank/traffic daily, query stats weekly) with no date, device, or
+   country filter — a Bing API limit, not something OpenSEO can work around.
+
+**What this skill does not do.** There is no MCP tool for Bing performance. Do not scrape the page,
+invent a private RPC, or write Bing clicks/queries into the snapshot. Do not add `bing.connected` to
+`seo-god.json` — there is no verification call, and "they said they pasted a key" is not proof.
+In the phase summary, one line: *"Bing Webmaster: connected in the dashboard (not in the snapshot)"*
+or *"Bing Webmaster: not available on this OpenSEO build"* or *"Bing Webmaster: skipped"*.
+
 ## 4. The tracked keyword list
 
 Aim for **10-30 keywords**. Fewer than ten is not a trend line; more than thirty is a list nobody
@@ -362,7 +394,8 @@ in every snapshot, which is the honest value, and the diff reports rank movement
 Say this to the user in one sentence rather than letting them discover it in the readout. Users who
 want real positions add the DataForSEO power-up (`references/power-ups.md`, budget-capped before
 the first call) and create the tracker on the project's **Rank tracking** page; this phase picks it
-up automatically the next run.
+up automatically the next run. When that page offers a search-engine choice (Google vs Bing), Bing
+configs are national-only and create-only — see `references/power-ups.md`.
 
 ## 5. Capture today's snapshot
 
@@ -446,20 +479,29 @@ Start from the `keywords` list. Look for a tracker:
 ```
 
 `result.structuredContent.configs` empty → no tracker. Every keyword becomes
-`{"keyword":"<the keyword>","position":null,"url":""}`. That is the free path, and it is correct.
+`{"keyword":"<the keyword>","position":null,"url":""}` (omit `search_engine`; absence means
+Google — see 5.5). That is the free path, and it is correct.
 
-A config exists → re-call with its `id` as `trackerId`. `result.structuredContent.results.rows`
-carries one row per tracked keyword with `keyword`, `desktop` and `mobile`, each
-`{position, previousPosition, rankingUrl, serpFeatures}`. For each keyword in your list:
+A config exists → OpenSEO may return more than one (Google and Bing when the build supports
+`searchEngine`). Re-call with each config's `id` as `trackerId` when you need rows. Prefer a
+**Google** config's measured position for each keyword. Use a **Bing** config only when no Google
+config has a measured position for that keyword. If `searchEngine` is absent on the config object,
+treat it as `"google"` — older builds are Google-only.
+
+`result.structuredContent.results.rows` carries one row per tracked keyword with `keyword`,
+`desktop` and `mobile`, each `{position, previousPosition, rankingUrl, serpFeatures}`. For each
+keyword in your list:
 
 - matched row → `position` = `desktop.position`, `url` = `desktop.rankingUrl` or `""` when null.
   **Use desktop consistently** and say so in the readout; silently switching device between runs
-  manufactures rank changes that never happened.
+  manufactures rank changes that never happened. Set `search_engine` to `"bing"` only when the
+  chosen config's engine is Bing; otherwise omit the field or write `"google"`.
 - no matched row, or `desktop.position` is `null` → `position: null`, `url: ""`.
 
 **Never fill `position` from a GSC average position.** They are different measurements — a SERP
 rank versus a mean over impressions — and mixing them into one field destroys the meaning of both.
-GSC positions belong in `gsc.top_queries`, where they are labelled as GSC.
+GSC positions belong in `gsc.top_queries`, where they are labelled as GSC. Bing Webmaster Insights
+positions never enter `ranks[]` either — that page is dashboard-only (section 3.8).
 
 ### 5.4 GSC
 
@@ -524,7 +566,7 @@ any of them:
     ]
   },
   "ranks": [
-    { "keyword": "example keyword", "position": null, "url": "" }
+    { "keyword": "example keyword", "position": null, "url": "", "search_engine": "google" }
   ],
   "gsc": {
     "available": false,
@@ -541,6 +583,9 @@ any of them:
 - `date` — the same `<YYYY-MM-DD>` as the filename.
 - `source` — always the literal `"seo-god"`.
 - `site` — `site_url` from state, unchanged.
+- `ranks[].search_engine` — optional. `"google"` or `"bing"`. **Absent on older snapshots means
+  `"google"`.** Still one row per keyword; prefer Google when both engines measured it (5.3). Do
+  not invent a top-level `bing` block — Bing Webmaster numbers never enter this file.
 - `ai_visibility` — defaults exactly as above unless you are preserving a measured section.
 
 ## 6. The diff
@@ -559,9 +604,12 @@ come first because a fix that broke something outranks every opportunity behind 
 
 **Rank drops of 3 or more positions.** Match today's `ranks` against the previous snapshot's by
 `keyword`. A regression is `today.position - previous.position >= 3` with **both** positions
-non-null. If either is `null`, it is not a regression and not an improvement — it is unmeasured,
-and it is counted in the "not measured" line, never in the drop list. When every position on either
-side is `null`, the whole line reads: *"Rank movement: not measured — no rank tracker configured."*
+non-null **and the same search engine** (`search_engine`, treating a missing field as `"google"`).
+If either is `null`, it is not a regression and not an improvement — it is unmeasured, and it is
+counted in the "not measured" line, never in the drop list. If both sides are non-null but the
+engines differ (e.g. yesterday Google, today Bing), the line for that keyword is *"not comparable
+— different search engine"*, never a drop. When every position on either side is `null`, the whole
+line reads: *"Rank movement: not measured — no rank tracker configured."*
 
 **New error-severity issues.** Compare `crawl.issues` entries whose `severity` is `"error"`. New
 means either the `type` is absent from the previous snapshot, or its entry lists a URL the previous
@@ -628,7 +676,10 @@ Write it to disk immediately, then give the user a short summary, in this order:
 
 - Where the snapshot was written, and whether it is the first one.
 - GSC: connected (with the bound property) or not measured, in those words.
-- The tracked keyword list size, and whether positions are measured or not measured.
+- Bing Webmaster: connected in the dashboard / not available on this build / skipped — and that
+  Bing clicks and queries are never in the snapshot.
+- The tracked keyword list size, and whether positions are measured or not measured (and which
+  `search_engine` supplied them when measured).
 - The crawl behind this snapshot: page count, and the audit's `completedAt` — plus whether it was
   reused or run fresh in this session, so a stale crawl is visible rather than implied.
 - The diff, in the section order above, with every "not measured" line kept as such.

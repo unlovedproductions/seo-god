@@ -41,7 +41,7 @@ SKILL.md's hard rules outrank even these.
 
 ## Attended or unattended — decide this first, it changes several branches
 
-- Routed here by **SKILL.md step 3** (the `daily` argument, i.e. `claude -p "/seo-god daily"`) →
+- Routed here by **SKILL.md step 3** (the `daily` argument, i.e. `cursor-agent -p "/seo-god daily"`) →
   **unattended**. Nobody is watching. Ask **zero** questions: every branch in this file has a
   defined no-question path, and taking it is the correct behaviour, not a failure.
 - Routed here by SKILL.md step 4 or the step 6 menu (a human asked for `act`) → **attended**. You
@@ -50,9 +50,9 @@ SKILL.md's hard rules outrank even these.
   file asks anything.
 - Cannot tell → treat the run as **unattended**.
 
-**A `claude -p` invocation is never attended, whichever step routed you.** Attended means an
+**A headless scheduled invocation is never attended, whichever step routed you.** Attended means an
 interactive session with a human who can answer — not merely that the request named a phase. A
-headless `claude -p "/seo-god act"` arrives through SKILL.md step 4 and is still unattended.
+cron-driven `cursor-agent -p "/seo-god daily"` is always unattended. Interactive `/seo-god act` in Cursor is attended.
 
 Degrade, never refuse. Missing OpenSEO, missing GSC, missing build gate: do what the available
 data supports, name exactly what was missing in the readout, and fabricate none of the rest.
@@ -236,10 +236,13 @@ invisible until traffic arrives somewhere it should not.
 
 **Rank drops.** On the free path every `ranks[].position` is `null`, so this line reads *"Rank
 movement: not measured — no rank tracker configured"* and there is nothing to act on. Where a
-tracker did measure a real drop, act only on what the data shows: check the losing URL in today's
-crawl for an error-severity issue, a `noindex-page`, a `redirect-chain`, a `blocked-page` or a
-4xx, and fix that. If the page is clean in the data, say the drop is unexplained by the data. You
-have no ranking-algorithm evidence and you never narrate one.
+tracker did measure a real drop, act only when **both** snapshots have non-null positions for that
+keyword **on the same search engine** (`search_engine`, missing field = `"google"`) — the same
+rule as `references/measure.md` section 6. A Google→Bing (or reverse) pair is *"not comparable"*,
+not a regression; do not "fix" it. On a same-engine drop, act only on what the data shows: check
+the losing URL in today's crawl for an error-severity issue, a `noindex-page`, a `redirect-chain`,
+a `blocked-page` or a 4xx, and fix that. If the page is clean in the data, say the drop is
+unexplained by the data. You have no ranking-algorithm evidence and you never narrate one.
 
 **GSC clicks down week over week.** No edit fixes this directly. Report it with the numbers from
 the diff, and check whether new error-severity issues on the highest-impression pages line up
@@ -299,7 +302,9 @@ which must pass, or you write nothing:
 **No demand data means no new page.** With `gsc.available: false` and every `ranks[].position`
 `null`, this loop has no evidence of what anyone searches for — the readout line is *"No new
 page: no demand data (GSC not measured, no rank tracker)"* and the run ends after section 4.
-Inventing a topic here is exactly the failure hard law 4 names.
+Inventing a topic here is exactly the failure hard law 4 names. Bing Webmaster Insights on the
+OpenSEO dashboard does **not** count as demand data — those numbers never enter the snapshot
+(`references/measure.md` section 3.8).
 
 The page, when all three tests pass — answer-first, in this order:
 
@@ -386,8 +391,9 @@ readout look busy; a manufactured change is a real risk taken against a real sit
 | crawl completed but fetched nothing — 0 pages, or every page `fetchClass: "error"` | no snapshot, no edits; acts on the newest snapshot on disk | that the crawl reached no pages so nothing was audited, that snapshot's date, and `stale` on the diff |
 | a file to edit has uncommitted changes | skips that item | which file, and that it was left to the user |
 | `gsc.available: false` | crawl regressions; quick wins and page evidence from tracker rows only | `GSC: not measured` |
-| `gsc.available: false` **and** every `ranks[].position` `null` | no quick wins and **no new page** — no demand data exists at all | `No new page: no demand data (GSC not measured, no rank tracker)` |
+| `gsc.available: false` **and** every `ranks[].position` `null` | no quick wins and **no new page** — no demand data exists at all (Bing Insights dashboard does not count) | `No new page: no demand data (GSC not measured, no rank tracker)` |
 | every `ranks[].position` is `null` | no rank-drop regressions | `Rank movement: not measured — no rank tracker configured` |
+| same keyword, different `search_engine` across snapshots | not a rank drop — leave alone | `not comparable — different search engine` |
 | `ai_visibility.measured: false` | nothing — it belongs to `references/ai-visibility.md` | `AI visibility: not measured`, if mentioned at all |
 
 Every cell above is a complete, honest run. None of them is a reason to refuse, and none of them
